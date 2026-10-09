@@ -59,6 +59,16 @@ const theme = createTheme({
         MuiButton: {
             defaultProps: { disableElevation: true },
         },
+        // Header SEMUA tabel: warna sama dengan header halaman (Emerald Deep)
+        MuiTableCell: {
+            styleOverrides: {
+                head: {
+                    backgroundColor: "#065F46",
+                    color: "#FFFFFF",
+                    fontWeight: 700,
+                },
+            },
+        },
     },
 });
 

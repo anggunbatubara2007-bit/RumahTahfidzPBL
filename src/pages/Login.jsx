@@ -36,9 +36,31 @@ const roles = [
 // Santri login dengan NIS, Admin dan Ustadz dengan username.
 const USERS = [
     { id: 1, username: "admin", password: "admin123", nama: "Admin RSQ", role: "admin" },
-    { id: 2, username: "ustadz01", password: "ustadz123", nama: "Ustadz Hasan", role: "ustadz" },
+    { id: 2, username: "Hilman", password: "Hilman123", nama: "Ust. Hilman", kelompok: "Al-Fatih", jumlahSantri: 18, role: "ustadz" },
     { id: 3, nis: "2024001", password: "santri123", nama: "Ahmad Fauzan", role: "santri" },
 ];
+
+// Akun ustadz diambil dari data yang dikelola admin (halaman Data Ustadz).
+// Kalau admin belum pernah membuka halaman itu, pakai akun dummy di USERS.
+const semuaAkun = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem("dataUstadz"));
+        if (Array.isArray(saved)) {
+            const ustadz = saved.map((u) => ({
+                id: `ustadz-${u.id}`,
+                username: u.username,
+                password: u.password,
+                nama: u.nama,
+                kelompok: u.kelompok,
+                role: "ustadz",
+            }));
+            return [...USERS.filter((u) => u.role !== "ustadz"), ...ustadz];
+        }
+    } catch {
+        /* data rusak: pakai akun dummy */
+    }
+    return USERS;
+};
 
 export default function Login() {
     const { user, login } = useAuth();
@@ -106,7 +128,7 @@ export default function Login() {
         }
 
         // Login dummy: NIS/username, password, dan role harus cocok
-        const found = USERS.find((u) => {
+        const found = semuaAkun().find((u) => {
             if (u.role !== form.role || u.password !== form.password) return false;
             return isSantri
                 ? u.nis === identifier

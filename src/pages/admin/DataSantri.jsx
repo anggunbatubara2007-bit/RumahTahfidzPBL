@@ -2,29 +2,44 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Alert, Box, Button, Card, Chip, Dialog, DialogActions, DialogContent,
-    DialogContentText, DialogTitle, IconButton, InputAdornment, MenuItem, Snackbar,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
-    Tooltip, Typography,
+    DialogContentText, DialogTitle, IconButton, InputAdornment, MenuItem, Pagination,
+    Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    TextField, Tooltip, Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { palette } from '../../theme/theme';
 
 // TODO: ganti data dummy ini dengan data dari API backend.
-// Pembimbing mengikuti kelompok (FR-04), jadi tidak diisi manual di form santri.
-const KELOMPOK = [
-    { nama: 'Al-Fatih', pembimbing: 'Ust. Haliman' },
+
+// Kelompok dan pembimbingnya diambil dari halaman Kelompok Tahfidz (FR-04),
+// jadi pembimbing tidak diisi manual di form santri.
+const KUNCI_KELOMPOK = 'dataKelompok';
+const KELOMPOK_DEFAULT = [
+    { nama: 'Al-Fatih', pembimbing: 'Ust. Hilman' },
     { nama: 'Al-Nur', pembimbing: 'Ust. Nur' },
-    { nama: 'Al-Hikmah', pembimbing: 'Ust. Hasan' },
+    { nama: 'Ar-Rahman', pembimbing: 'Ust. Zainal' },
+    { nama: 'Al-Ikhlas', pembimbing: 'Ust. Muslih' },
+    { nama: 'Al-Falah', pembimbing: 'Ust. Rafi' },
     { nama: 'An-Naba', pembimbing: 'Ust. Fatih' },
 ];
 
+const muatKelompok = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(KUNCI_KELOMPOK));
+        if (Array.isArray(saved)) {
+            return saved.map((k) => ({ nama: k.nama, pembimbing: k.pembina }));
+        }
+    } catch {
+        /* data rusak: pakai daftar bawaan */
+    }
+    return KELOMPOK_DEFAULT;
+};
+
 const STATUS = ['Aktif', 'Non-Aktif'];
-const PER_PAGE = 5;
+const PER_PAGE = 10;
 
 // beasiswa: true = penerima. Diisi otomatis oleh sistem dari capaian bulanan (FR-07),
 // jadi tidak bisa diubah dari form ini.
@@ -34,22 +49,22 @@ const DATA_AWAL = [
     { id: 3, nama: 'Miftahul Jannah', nis: '2024003', kelompok: 'Al-Fatih', beasiswa: true, status: 'Aktif' },
     { id: 4, nama: 'Rizki Hanafi', nis: '2024004', kelompok: 'Al-Nur', beasiswa: true, status: 'Non-Aktif' },
     { id: 5, nama: 'Ahmad Rizki', nis: '2024005', kelompok: 'Al-Fatih', beasiswa: false, status: 'Aktif' },
-    { id: 6, nama: 'Citra Anggun', nis: '2024006', kelompok: 'Al-Hikmah', beasiswa: true, status: 'Aktif' },
+    { id: 6, nama: 'Citra Anggun', nis: '2024006', kelompok: 'Ar-Rahman', beasiswa: true, status: 'Aktif' },
     { id: 7, nama: 'Tesa Damayanti', nis: '2024007', kelompok: 'An-Naba', beasiswa: false, status: 'Aktif' },
-    { id: 8, nama: 'Fauzan Ahmad', nis: '2024008', kelompok: 'Al-Hikmah', beasiswa: false, status: 'Aktif' },
+    { id: 8, nama: 'Fauzan Ahmad', nis: '2024008', kelompok: 'Ar-Rahman', beasiswa: false, status: 'Aktif' },
     { id: 9, nama: 'Nur Aisyah', nis: '2024009', kelompok: 'An-Naba', beasiswa: true, status: 'Aktif' },
     { id: 10, nama: 'Dimas Pratama', nis: '2024010', kelompok: 'Al-Nur', beasiswa: false, status: 'Aktif' },
     { id: 11, nama: 'Salsabila', nis: '2024011', kelompok: 'Al-Fatih', beasiswa: false, status: 'Non-Aktif' },
-    { id: 12, nama: 'Habib Ramadhan', nis: '2024012', kelompok: 'Al-Hikmah', beasiswa: true, status: 'Aktif' },
+    { id: 12, nama: 'Habib Ramadhan', nis: '2024012', kelompok: 'Al-Ikhlas', beasiswa: true, status: 'Aktif' },
 ];
 
 const FORM_KOSONG = { nama: '', nis: '', kelompok: '', status: 'Aktif' };
 
-const pembimbingDari = (kelompok) =>
-    KELOMPOK.find((k) => k.nama === kelompok)?.pembimbing ?? '-';
-
 export default function DataSantri() {
     const [searchParams] = useSearchParams();
+
+    const KELOMPOK = useMemo(muatKelompok, []);
+    const pembimbingDari = (nama) => KELOMPOK.find((k) => k.nama === nama)?.pembimbing ?? '-';
 
     const [santri, setSantri] = useState(DATA_AWAL);
     const [cari, setCari] = useState(searchParams.get('q') ?? ''); // dari kolom cari di dashboard
@@ -62,6 +77,13 @@ export default function DataSantri() {
     const [errors, setErrors] = useState({});
     const [hapus, setHapus] = useState(null); // santri yang akan dihapus
     const [notif, setNotif] = useState('');
+
+    // Pilihan kelompok di form: semua kelompok + kelompok santri yang sedang diubah
+    const pilihanKelompok = useMemo(() => {
+        const nama = KELOMPOK.map((k) => k.nama);
+        if (form.kelompok && !nama.includes(form.kelompok)) nama.push(form.kelompok);
+        return nama;
+    }, [KELOMPOK, form.kelompok]);
 
     // ---------- Filter & halaman ----------
     const terfilter = useMemo(() => {
@@ -212,12 +234,12 @@ export default function DataSantri() {
                 </Button>
             </Box>
 
-            {/* Tabel */}
-            <Card>
+            {/* Tabel (header mengikuti tema) */}
+            <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
                 <TableContainer>
                     <Table size="small">
                         <TableHead>
-                            <TableRow sx={{ bgcolor: palette.frostedMint }}>
+                            <TableRow>
                                 <TableCell>No</TableCell>
                                 <TableCell>Nama Santri</TableCell>
                                 <TableCell>NIS</TableCell>
@@ -289,22 +311,25 @@ export default function DataSantri() {
                         : `Menampilkan ${mulai + 1}-${mulai + tampil.length} dari ${terfilter.length} santri`}
                 </Typography>
 
-                <Box>
-                    <IconButton
-                        onClick={() => setHalaman(halamanAman - 1)}
-                        disabled={halamanAman <= 1}
-                        aria-label="Halaman sebelumnya"
-                    >
-                        <ChevronLeftIcon />
-                    </IconButton>
-                    <IconButton
-                        onClick={() => setHalaman(halamanAman + 1)}
-                        disabled={halamanAman >= totalHalaman}
-                        aria-label="Halaman berikutnya"
-                    >
-                        <ChevronRightIcon />
-                    </IconButton>
-                </Box>
+                <Pagination
+                    count={totalHalaman}
+                    page={halamanAman}
+                    onChange={(_, nomor) => setHalaman(nomor)}
+                    variant="outlined"
+                    shape="rounded"
+                    sx={{
+                        '& .MuiPaginationItem-root': {
+                            borderColor: palette.pineTeal,
+                            color: palette.pineTeal,
+                            fontWeight: 600,
+                            borderRadius: 2,
+                        },
+                        '& .MuiPaginationItem-root.Mui-selected': {
+                            bgcolor: palette.frostedMint,
+                            borderColor: palette.pineTeal,
+                        },
+                    }}
+                />
             </Box>
 
             {/* Dialog tambah / ubah */}
@@ -353,8 +378,8 @@ export default function DataSantri() {
                         }
                         fullWidth
                     >
-                        {KELOMPOK.map((k) => (
-                            <MenuItem key={k.nama} value={k.nama}>{k.nama}</MenuItem>
+                        {pilihanKelompok.map((nama) => (
+                            <MenuItem key={nama} value={nama}>{nama}</MenuItem>
                         ))}
                     </TextField>
                     <TextField

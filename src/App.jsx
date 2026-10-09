@@ -7,11 +7,16 @@ import { NAV, flatNav } from './config/navigation';
 
 import LoginPage from './pages/Login';
 import Placeholder from './pages/Placeholder';
+
 // Admin
 import AdminDashboard from './pages/admin/Dashboard';
 import DataSantri from './pages/admin/DataSantri';
-// Ustadz
-// (belum ada)
+import DataUstadz from './pages/admin/DataUstadz';
+import KelompokTahfidz from './pages/admin/KelompokTahfidz';
+
+// Ustadz 
+import UstadzDashboard from './pages/ustadz/Dashboard';
+// import UstadzDashboard from './pages/ustadz/Dashboard';
 
 // Santri
 // (belum ada)
@@ -22,6 +27,10 @@ import DataSantri from './pages/admin/DataSantri';
 const PAGES = {
   '/admin/dashboard': <AdminDashboard />,
   '/admin/santri': <DataSantri />,
+  '/admin/ustadz': <DataUstadz />,
+  '/admin/kelompok': <KelompokTahfidz />,
+  
+  '/ustadz/dashboard': <UstadzDashboard />,
 };
 
 function RootRedirect() {

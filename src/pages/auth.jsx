@@ -34,7 +34,7 @@ export const useAuth = () => useContext(AuthContext);
 // Halaman awal tiap role setelah login
 export const HOME_BY_ROLE = {
     admin: '/admin/dashboard',
-    ustadz: '/ustadz/santri',
+    ustadz: '/ustadz/dashboard',
     santri: '/santri/profil',
 };
 
