@@ -13,9 +13,11 @@ import AdminDashboard from './pages/admin/Dashboard';
 import DataSantri from './pages/admin/DataSantri';
 import DataUstadz from './pages/admin/DataUstadz';
 import KelompokTahfidz from './pages/admin/KelompokTahfidz';
+import Hafalan from './pages/admin/Hafalan';
+import DataSpp from './pages/admin/DataSpp';
+// import AkunPengguna from './pages/admin/AkunPengguna'; // dihapus: akun dikelola di Data Santri dan Data Ustadz
 
-// Ustadz 
-import UstadzDashboard from './pages/ustadz/Dashboard';
+// Ustadz (nanti, setelah halaman admin selesai)
 // import UstadzDashboard from './pages/ustadz/Dashboard';
 
 // Santri
@@ -29,8 +31,9 @@ const PAGES = {
   '/admin/santri': <DataSantri />,
   '/admin/ustadz': <DataUstadz />,
   '/admin/kelompok': <KelompokTahfidz />,
-  
-  '/ustadz/dashboard': <UstadzDashboard />,
+  '/admin/hafalan': <Hafalan />,
+  '/admin/spp': <DataSpp />,
+  // '/ustadz/dashboard': <UstadzDashboard />,
 };
 
 function RootRedirect() {

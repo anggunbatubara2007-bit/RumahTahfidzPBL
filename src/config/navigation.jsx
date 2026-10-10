@@ -25,7 +25,6 @@ export const NAV = {
                 { label: 'Data Ustadz', title: 'Data Ustadz', path: '/admin/ustadz', icon: SchoolIcon },
                 { label: 'Kelompok Tahfidz', title: 'Kelompok Tahfidz', path: '/admin/kelompok', icon: GroupsIcon },
                 { label: 'Hafalan, target & beasiswa', title: 'Hafalan, Target & Beasiswa', path: '/admin/hafalan', icon: MenuBookIcon },
-                { label: 'Akun Pengguna', title: 'Akun Pengguna', path: '/admin/akun', icon: ManageAccountsIcon },
             ],
         },
         {
