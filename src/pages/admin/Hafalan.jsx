@@ -29,6 +29,12 @@ const muatNamaKelompok = () => {
 
 const JENIS = ['Hafalan', "Muraja'ah"];
 
+// Warna chip jenis setoran: Hafalan hijau, Muraja'ah biru
+const WARNA_JENIS = {
+    Hafalan: { bg: palette.frostedMint, text: palette.pineTeal },
+    "Muraja'ah": { bg: '#DBEAFE', text: '#1E40AF' },
+};
+
 const SETORAN = [
     { id: 1, tanggal: '2026-10-03', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'An-Naba 1-20', halaman: 5 },
     { id: 2, tanggal: '2026-10-08', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'An-Naba 21-40', halaman: 5 },
@@ -208,8 +214,8 @@ export default function Hafalan() {
                                                 label={s.jenis}
                                                 size="small"
                                                 sx={{
-                                                    bgcolor: palette.frostedMint,
-                                                    color: palette.pineTeal,
+                                                    bgcolor: WARNA_JENIS[s.jenis].bg,
+                                                    color: WARNA_JENIS[s.jenis].text,
                                                     fontWeight: 600,
                                                 }}
                                             />

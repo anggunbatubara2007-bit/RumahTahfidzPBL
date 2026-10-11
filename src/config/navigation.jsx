@@ -40,7 +40,7 @@ export const NAV = {
         {
             items: [
                 { label: 'Dashboard', title: 'Dashboard Ustadz', path: '/ustadz/dashboard', icon: DashboardIcon },
-                { label: 'Santri Bimbingan', title: 'Santri Bimbingan', path: '/ustadz/santri', icon: PeopleIcon }, // FR-12
+                { label: 'Santri Bimbingan', title: 'Santri Bimbingan', path: '/ustadz/santri', icon: PeopleIcon },
             ],
         },
     ],

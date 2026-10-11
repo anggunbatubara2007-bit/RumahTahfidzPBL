@@ -29,7 +29,7 @@ const theme = createTheme({
             main: "#059669",
         },
         background: {
-            default: "#ECFDF5",
+            default: "#FFFFFF", // latar utama halaman: putih
             paper: "#FFFFFF",
         },
         error: {

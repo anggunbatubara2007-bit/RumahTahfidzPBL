@@ -15,10 +15,13 @@ import DataUstadz from './pages/admin/DataUstadz';
 import KelompokTahfidz from './pages/admin/KelompokTahfidz';
 import Hafalan from './pages/admin/Hafalan';
 import DataSpp from './pages/admin/DataSpp';
-// import AkunPengguna from './pages/admin/AkunPengguna'; // dihapus: akun dikelola di Data Santri dan Data Ustadz
+import Verifikasi from './pages/admin/Verifikasi';
+import KelolaKeuangan from './pages/admin/KelolaKeuangan';
+
 
 // Ustadz (nanti, setelah halaman admin selesai)
-// import UstadzDashboard from './pages/ustadz/Dashboard';
+import UstadzDashboard from './pages/ustadz/Dashboard';
+import SantriBimbingan from './pages/ustadz/SantriBimbingan';
 
 // Santri
 // (belum ada)
@@ -33,7 +36,11 @@ const PAGES = {
   '/admin/kelompok': <KelompokTahfidz />,
   '/admin/hafalan': <Hafalan />,
   '/admin/spp': <DataSpp />,
-  // '/ustadz/dashboard': <UstadzDashboard />,
+  '/admin/verifikasi': <Verifikasi />,
+  '/admin/keuangan': <KelolaKeuangan />,
+
+  '/ustadz/dashboard': <UstadzDashboard />,
+  '/ustadz/santri': <SantriBimbingan />,
 };
 
 function RootRedirect() {
