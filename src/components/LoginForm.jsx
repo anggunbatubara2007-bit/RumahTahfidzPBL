@@ -15,6 +15,13 @@ function LoginForm() {
 
     return (
         <form onSubmit={handleSubmit} className="login-form">
+            <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+                <img
+                    src="/logo.png"
+                    alt="Logo RSQ"
+                    style={{ width: "80px", height: "80px", objectFit: "contain" }}
+                />
+            </div>
             <div className="form-group">
                 <label htmlFor="email">Email</label>
                 <input

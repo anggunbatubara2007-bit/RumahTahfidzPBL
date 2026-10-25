@@ -7,7 +7,6 @@ import {
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutIcon from '@mui/icons-material/Logout';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { useAuth } from '../pages/auth';
 import { NAV, flatNav } from '../config/navigation';
 import { palette } from '../theme/theme';
@@ -80,8 +79,19 @@ export default function AppLayout() {
                     pb: 'clamp(2px, 1vh, 12px)', flexShrink: 0,
                 }}
             >
-                <MenuBookIcon sx={{ color: palette.aquamarine }} />
-                <Typography variant="h6" sx={{ color: '#fff', fontSize: 'clamp(15px, 2.4vh, 20px)' }}>
+                <Box
+                    component="img"
+                    src="/logo.png"
+                    alt="Logo RSQ"
+                    sx={{
+                        width: 'clamp(32px, 4.5vh, 42px)',
+                        height: 'clamp(32px, 4.5vh, 42px)',
+                        objectFit: 'contain',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                    }}
+                />
+                <Typography variant="h6" sx={{ color: '#fff', fontSize: 'clamp(15px, 2.4vh, 20px)', fontWeight: 700 }}>
                     RSQ Tahfidz
                 </Typography>
             </Box>
@@ -173,14 +183,29 @@ export default function AppLayout() {
                     }}
                 >
                     {!isDesktop && (
-                        <IconButton
-                            edge="start"
-                            onClick={() => setOpen(true)}
-                            aria-label="Buka menu"
-                            sx={{ color: '#fff' }}
-                        >
-                            <MenuIcon />
-                        </IconButton>
+                        <>
+                            <IconButton
+                                edge="start"
+                                onClick={() => setOpen(true)}
+                                aria-label="Buka menu"
+                                sx={{ color: '#fff' }}
+                            >
+                                <MenuIcon />
+                            </IconButton>
+                            <Box
+                                component="img"
+                                src="/logo.png"
+                                alt="Logo RSQ"
+                                sx={{
+                                    width: 32,
+                                    height: 32,
+                                    objectFit: 'contain',
+                                    borderRadius: '50%',
+                                    mr: 1,
+                                    flexShrink: 0,
+                                }}
+                            />
+                        </>
                     )}
 
                     <Box sx={{ flex: 1, minWidth: 0 }}>

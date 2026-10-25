@@ -20,7 +20,6 @@ import {
     LockOutlined,
     BadgeOutlined,
     PersonOutlined,
-    MenuBook,
 } from "@mui/icons-material";
 
 import { useAuth, HOME_BY_ROLE } from "./auth";
@@ -198,21 +197,18 @@ export default function Login() {
                     {/* Logo dan identitas */}
                     <Box sx={{ textAlign: "center", mb: 3 }}>
                         <Box
+                            component="img"
+                            src="/logo.png"
+                            alt="Logo RSQ"
                             sx={{
-                                width: 68,
-                                height: 68,
+                                width: 84,
+                                height: 84,
                                 mx: "auto",
                                 mb: 2,
-                                bgcolor: "#064E3B",
-                                color: "#FFFFFF",
-                                borderRadius: "20px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
+                                display: "block",
+                                objectFit: "contain",
                             }}
-                        >
-                            <MenuBook sx={{ fontSize: 38 }} />
-                        </Box>
+                        />
 
                         <Typography
                             variant="h5"
