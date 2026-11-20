@@ -223,7 +223,7 @@ export default function DataSpp() {
         });
     };
 
-    // Langkah 2: buat tagihan. Santri penerima beasiswa dibebaskan (FR-08).
+    // Langkah 2: buat tagihan. Santri penerima beasiswa dibebaskan (FR-05).
     const buatTagihan = () => {
         const { bulan, nominal, jatuhTempo, daftar } = rencana;
         const stamp = Date.now();

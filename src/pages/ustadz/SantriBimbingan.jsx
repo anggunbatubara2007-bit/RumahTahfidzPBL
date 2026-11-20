@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
     Alert, Box, Button, Card, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-    InputAdornment, LinearProgress, MenuItem, Pagination, Snackbar, Table, TableBody,
-    TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+    InputAdornment, LinearProgress, MenuItem, Pagination, Snackbar, Tab, Table, TableBody,
+    TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { useAuth } from '../auth';
 import { palette } from '../../theme/theme';
 
 // TODO: ganti penyimpanan localStorage ini dengan API backend.
-// Santri bimbingan = santri aktif di kelompok ustadz yang login (FR-12).
+// Santri bimbingan = santri aktif di kelompok ustadz yang login (FR-08).
 const KUNCI_SETORAN = 'dataSetoran';
 const KUNCI_SANTRI = 'dataSantri'; // dikelola admin di Data Santri
 
@@ -59,6 +60,16 @@ const NAMA_BULAN = [
 ];
 const namaBulanIni = `${NAMA_BULAN[sekarang.getMonth()]} ${sekarang.getFullYear()}`;
 
+const formatBulanLabel = (ym) => {
+    if (!ym) return '';
+    const parts = ym.split('-');
+    if (parts.length < 2) return ym;
+    const thn = Number(parts[0]);
+    const bln = Number(parts[1]);
+    if (!thn || !bln || bln < 1 || bln > 12) return ym;
+    return `${NAMA_BULAN[bln - 1]} ${thn}`;
+};
+
 // Tercapai bila 20 halaman. Tertinggal bila di bawah laju yang dibutuhkan, selebihnya Proses.
 const statusSantri = (progres) => {
     if (progres >= TARGET) return 'Tercapai';
@@ -66,6 +77,29 @@ const statusSantri = (progres) => {
 };
 
 const WARNA_STATUS = { Tercapai: 'success', Proses: 'info', Tertinggal: 'error' };
+
+const WARNA_JENIS = {
+    Hafalan: { bg: palette.frostedMint, text: palette.pineTeal },
+    "Muraja'ah": { bg: '#DBEAFE', text: '#1E40AF' },
+};
+
+const formatTanggal = (iso) => {
+    if (!iso) return '-';
+    try {
+        return new Date(`${iso}T00:00:00`).toLocaleDateString('id-ID', {
+            day: 'numeric', month: 'short', year: 'numeric',
+        });
+    } catch {
+        return iso;
+    }
+};
+
+const warnaNilai = (n = '') => {
+    if (n === 'A') return 'success';
+    if (n.startsWith('B')) return 'primary';
+    if (n.startsWith('C')) return 'warning';
+    return 'error';
+};
 
 // Data setoran awal agar tabel langsung terisi (hanya dipakai sekali)
 const buatSetoranAwal = () => {
@@ -117,9 +151,12 @@ export default function SantriBimbingan() {
     const [setoran, setSetoran] = useState(muatSetoran);
 
     const [cari, setCari] = useState('');
+    const [filterTanggal, setFilterTanggal] = useState('');
     const [halaman, setHalaman] = useState(1);
 
     const [dialog, setDialog] = useState(false);
+    const [tabDialog, setTabDialog] = useState(0); // 0: Form Catat, 1: Riwayat Hafalan
+    const [bulanRiwayat, setBulanRiwayat] = useState(bulanIni); // Filter riwayat per bulan
     const [form, setForm] = useState(FORM_KOSONG);
     const [errors, setErrors] = useState({});
     const [notif, setNotif] = useState(null); // { text, severity }
@@ -128,45 +165,96 @@ export default function SantriBimbingan() {
         try {
             localStorage.setItem(KUNCI_SETORAN, JSON.stringify(setoran));
         } catch {
-            setNotif({
-                text: 'Penyimpanan browser penuh. Setoran terakhir mungkin tidak tersimpan.',
-                severity: 'warning',
-            });
+            setTimeout(() => {
+                setNotif({
+                    text: 'Penyimpanan browser penuh. Setoran terakhir mungkin tidak tersimpan.',
+                    severity: 'warning',
+                });
+            }, 0);
         }
     }, [setoran]);
 
-    // Progres bulan ini per santri: hanya hafalan baru yang dihitung (FR-06)
+    // Daftar bulan yang tersedia dari data setoran untuk filter riwayat per bulan
+    const daftarBulan = useMemo(() => {
+        const bulanSet = new Set();
+        bulanSet.add(bulanIni);
+        setoran.forEach((s) => {
+            if (s.tanggal && s.tanggal.length >= 7) {
+                bulanSet.add(s.tanggal.slice(0, 7));
+            }
+        });
+        return Array.from(bulanSet).sort((a, b) => b.localeCompare(a));
+    }, [setoran]);
+
+    // Progres bulan ini per santri: hanya hafalan baru yang dihitung (FR-08)
     const progres = useMemo(() => {
         const hasil = {};
         setoran.forEach((s) => {
-            if (s.jenis === 'Hafalan' && s.tanggal.startsWith(bulanIni)) {
+            if (s.jenis === 'Hafalan' && s.tanggal?.startsWith(bulanIni)) {
                 hasil[s.nis] = (hasil[s.nis] ?? 0) + s.halaman;
             }
         });
         return hasil;
     }, [setoran]);
 
-    // ---------- Daftar ----------
+    // Riwayat hafalan santri yang dipilih KHUSUS per bulan yang dipilih (per bulan saja)
+    const riwayatSantriBulan = useMemo(() => {
+        if (!form.nis) return [];
+        return setoran
+            .filter((s) => s.nis === form.nis && s.tanggal?.startsWith(bulanRiwayat))
+            .sort((a, b) => b.tanggal.localeCompare(a.tanggal) || String(b.id).localeCompare(String(a.id)));
+    }, [setoran, form.nis, bulanRiwayat]);
+
+    // Total halaman hafalan baru untuk santri pada bulan yang dipilih
+    const progresBulanDipilih = useMemo(() => {
+        return riwayatSantriBulan
+            .filter((s) => s.jenis === 'Hafalan')
+            .reduce((sum, s) => sum + Number(s.halaman || 0), 0);
+    }, [riwayatSantriBulan]);
+
+    const statusBulanDipilih = statusSantri(progresBulanDipilih);
+    const setoranTerakhir = riwayatSantriBulan[0] ?? null;
+    const santriTerpilih = santriList.find((s) => s.nis === form.nis);
+
+    // ---------- Daftar Santri (difilter nama dan tanggal di atas tabel) ----------
     const baris = useMemo(() => {
         const q = cari.trim().toLowerCase();
         return santriList
-            .filter((s) => !q || s.nama.toLowerCase().includes(q))
+            .filter((s) => {
+                const cocokNama = !q || s.nama.toLowerCase().includes(q);
+                if (!cocokNama) return false;
+                if (filterTanggal) {
+                    // Filter berdasarkan tanggal: hanya santri yang memiliki setoran pada tanggal tersebut
+                    return setoran.some((st) => st.nis === s.nis && st.tanggal === filterTanggal);
+                }
+                return true;
+            })
             .map((s) => {
                 const nilai = progres[s.nis] ?? 0;
-                return { ...s, progres: nilai, status: statusSantri(nilai) };
+                const setoranPadaTanggal = filterTanggal
+                    ? setoran.filter((st) => st.nis === s.nis && st.tanggal === filterTanggal)
+                    : [];
+                return {
+                    ...s,
+                    progres: nilai,
+                    status: statusSantri(nilai),
+                    setoranPadaTanggal,
+                };
             })
             .sort((a, b) => a.nama.localeCompare(b.nama));
-    }, [santriList, cari, progres]);
+    }, [santriList, cari, progres, filterTanggal, setoran]);
 
     const totalHalaman = Math.max(1, Math.ceil(baris.length / PER_PAGE));
     const halamanAman = Math.min(halaman, totalHalaman);
     const mulai = (halamanAman - 1) * PER_PAGE;
     const tampil = baris.slice(mulai, mulai + PER_PAGE);
 
-    // ---------- Form catat setoran ----------
-    const bukaCatat = (nis = '') => {
+    // ---------- Form catat setoran & riwayat ----------
+    const bukaCatat = (nis = '', tab = 0) => {
         setForm({ ...FORM_KOSONG, nis });
         setErrors({});
+        setTabDialog(tab);
+        setBulanRiwayat(bulanIni);
         setDialog(true);
     };
 
@@ -185,6 +273,7 @@ export default function SantriBimbingan() {
 
     const simpan = (e) => {
         e.preventDefault();
+        if (tabDialog !== 0) return;
 
         const surat = form.surat.trim();
         const jumlah = Number(form.halaman);
@@ -198,7 +287,7 @@ export default function SantriBimbingan() {
         }
         if (!surat) baru.surat = 'Surat dan ayat wajib diisi.';
         if (!jumlah || jumlah <= 0) baru.halaman = 'Jumlah halaman harus lebih dari 0.';
-        if (!form.nilai) baru.nilai = 'Nilai wajib diisi untuk setiap setoran.'; // FR-15
+        if (!form.nilai) baru.nilai = 'Nilai wajib diisi untuk setiap setoran.'; // FR-09
 
         setErrors(baru);
         if (Object.keys(baru).length > 0) return;
@@ -242,7 +331,7 @@ export default function SantriBimbingan() {
                 Kelompok {kelompok} · {santriList.length} santri · Progres {namaBulanIni}
             </Typography>
 
-            {/* Pencarian + tombol catat */}
+            {/* Pencarian + Filter Tanggal + tombol catat */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
                 <TextField
                     size="small"
@@ -253,9 +342,9 @@ export default function SantriBimbingan() {
                         setHalaman(1);
                     }}
                     sx={{
-                        flex: '1 1 280px', maxWidth: 480, bgcolor: '#fff',
+                        flex: '1 1 220px', maxWidth: 360, bgcolor: '#fff',
                         '& .MuiOutlinedInput-root': {
-                            borderRadius: 6,
+                            borderRadius: 3,
                             '& fieldset': { borderColor: palette.shamrock },
                             '&:hover fieldset': { borderColor: palette.turfGreen },
                         },
@@ -272,9 +361,60 @@ export default function SantriBimbingan() {
                     }}
                 />
 
+                {/* Filter Tanggal di Atas Tabel */}
+                <TextField
+                    type="date"
+                    size="small"
+                    label="Filter Tanggal"
+                    value={filterTanggal}
+                    onChange={(e) => {
+                        setFilterTanggal(e.target.value);
+                        setHalaman(1);
+                    }}
+                    sx={{
+                        bgcolor: '#fff', minWidth: 190,
+                        '& .MuiOutlinedInput-root': {
+                            borderRadius: 3,
+                            '& fieldset': { borderColor: palette.shamrock },
+                            '&:hover fieldset': { borderColor: palette.turfGreen },
+                        },
+                    }}
+                    slotProps={{
+                        inputLabel: { shrink: true },
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <CalendarMonthIcon fontSize="small" sx={{ color: palette.shamrock }} />
+                                </InputAdornment>
+                            ),
+                        },
+                        htmlInput: { 'aria-label': 'Filter tanggal setoran' },
+                    }}
+                />
+
+                {filterTanggal && (
+                    <Chip
+                        label={`Tanggal: ${formatTanggal(filterTanggal)} ✕`}
+                        size="small"
+                        onClick={() => {
+                            setFilterTanggal('');
+                            setHalaman(1);
+                        }}
+                        onDelete={() => {
+                            setFilterTanggal('');
+                            setHalaman(1);
+                        }}
+                        sx={{
+                            bgcolor: palette.frostedMint,
+                            color: palette.pineTeal,
+                            fontWeight: 600,
+                        }}
+                    />
+                )}
+
                 <Box sx={{ flex: 1 }} />
 
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => bukaCatat()}>
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => bukaCatat('', 0)}>
                     Catat Setoran
                 </Button>
             </Box>
@@ -296,7 +436,12 @@ export default function SantriBimbingan() {
                             {tampil.map((s) => (
                                 <TableRow key={s.nis} hover>
                                     <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                        {s.nama}
+                                        <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{s.nama}</Typography>
+                                        {filterTanggal && s.setoranPadaTanggal?.length > 0 && (
+                                            <Typography variant="caption" sx={{ color: palette.turfGreen, display: 'block', fontWeight: 600 }}>
+                                                Setoran {formatTanggal(filterTanggal)}: {s.setoranPadaTanggal.map((st) => `${st.surat} (${st.halaman} hal, ${st.nilai})`).join('; ')}
+                                            </Typography>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <LinearProgress
@@ -319,9 +464,14 @@ export default function SantriBimbingan() {
                                         />
                                     </TableCell>
                                     <TableCell align="center">
-                                        <Button size="small" onClick={() => bukaCatat(s.nis)}>
-                                            Catat
-                                        </Button>
+                                        <Box sx={{ display: 'inline-flex', gap: 1 }}>
+                                            <Button size="small" variant="contained" onClick={() => bukaCatat(s.nis, 0)}>
+                                                Catat
+                                            </Button>
+                                            <Button size="small" variant="outlined" onClick={() => bukaCatat(s.nis, 1)}>
+                                                Riwayat
+                                            </Button>
+                                        </Box>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -330,9 +480,26 @@ export default function SantriBimbingan() {
                 </TableContainer>
 
                 {baris.length === 0 && (
-                    <Typography color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
-                        Tidak ada santri yang cocok dengan pencarian.
-                    </Typography>
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">
+                            {filterTanggal
+                                ? `Tidak ada santri yang memiliki setoran pada tanggal ${formatTanggal(filterTanggal)}.`
+                                : 'Tidak ada santri yang cocok dengan pencarian.'}
+                        </Typography>
+                        {filterTanggal && (
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                sx={{ mt: 1.5, borderColor: palette.shamrock, color: palette.pineTeal }}
+                                onClick={() => {
+                                    setFilterTanggal('');
+                                    setHalaman(1);
+                                }}
+                            >
+                                Tampilkan Semua Santri
+                            </Button>
+                        )}
+                    </Box>
                 )}
             </Card>
 
@@ -365,121 +532,406 @@ export default function SantriBimbingan() {
                 />
             </Box>
 
-            {/* Dialog catat setoran */}
+            {/* Dialog catat setoran & riwayat hafalan per bulan */}
             <Dialog
                 open={dialog}
                 onClose={tutupDialog}
                 fullWidth
-                maxWidth="xs"
-                slotProps={{ paper: { component: 'form', onSubmit: simpan, noValidate: true } }}
+                maxWidth={tabDialog === 1 ? 'md' : 'sm'}
+                slotProps={{
+                    paper: {
+                        component: 'form',
+                        onSubmit: simpan,
+                        noValidate: true,
+                        sx: { borderRadius: 3, overflow: 'hidden' },
+                    },
+                }}
             >
-                <DialogTitle sx={{ fontWeight: 700 }}>Catat Setoran</DialogTitle>
+                <DialogTitle
+                    sx={{
+                        fontWeight: 700,
+                        bgcolor: palette.emeraldDeep,
+                        color: '#fff',
+                        py: 2,
+                        px: 3,
+                    }}
+                >
+                    Catat & Riwayat Hafalan
+                </DialogTitle>
 
-                <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
-                    <TextField
-                        select
-                        label="Santri"
-                        name="nis"
-                        value={form.nis}
-                        onChange={ubahForm}
-                        error={Boolean(errors.nis)}
-                        helperText={errors.nis}
-                        fullWidth
-                    >
-                        {santriList.map((s) => (
-                            <MenuItem key={s.nis} value={s.nis}>{s.nama}</MenuItem>
-                        ))}
-                    </TextField>
-
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                        <TextField
-                            select
-                            label="Jenis"
-                            name="jenis"
-                            value={form.jenis}
-                            onChange={ubahForm}
-                            fullWidth
-                        >
-                            {JENIS.map((j) => (
-                                <MenuItem key={j} value={j}>{j}</MenuItem>
-                            ))}
-                        </TextField>
-
-                        <TextField
-                            label="Tanggal"
-                            name="tanggal"
-                            type="date"
-                            value={form.tanggal}
-                            onChange={ubahForm}
-                            error={Boolean(errors.tanggal)}
-                            helperText={errors.tanggal}
-                            slotProps={{
-                                inputLabel: { shrink: true },
-                                htmlInput: { max: hariIni },
-                            }}
-                            fullWidth
-                        />
-                    </Box>
-
-                    <TextField
-                        label="Surat / ayat"
-                        name="surat"
-                        value={form.surat}
-                        onChange={ubahForm}
-                        error={Boolean(errors.surat)}
-                        helperText={errors.surat || 'Contoh: An-Naba 1-20 atau Juz 29'}
-                        fullWidth
+                <Tabs
+                    value={tabDialog}
+                    onChange={(_, val) => setTabDialog(val)}
+                    sx={{
+                        px: 2,
+                        bgcolor: palette.honeydew,
+                        borderBottom: `1px solid ${palette.aquamarine}`,
+                        '& .MuiTab-root': {
+                            fontWeight: 700,
+                            textTransform: 'none',
+                            fontSize: 14,
+                            minHeight: 46,
+                            color: palette.turfGreen,
+                            '&.Mui-selected': { color: palette.pineTeal },
+                        },
+                        '& .MuiTabs-indicator': {
+                            bgcolor: palette.pineTeal,
+                            height: 3,
+                        },
+                    }}
+                >
+                    <Tab label="Catat Setoran" />
+                    <Tab
+                        label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <span>Riwayat Hafalan</span>
+                                {form.nis && (
+                                    <Chip
+                                        size="small"
+                                        label={`${riwayatSantriBulan.length} (${formatBulanLabel(bulanRiwayat)})`}
+                                        sx={{
+                                            height: 20,
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                            bgcolor: palette.pineTeal,
+                                            color: '#fff',
+                                        }}
+                                    />
+                                )}
+                            </Box>
+                        }
                     />
+                </Tabs>
 
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                        <TextField
-                            label="Jumlah halaman"
-                            name="halaman"
-                            value={form.halaman}
-                            onChange={ubahHalaman}
-                            error={Boolean(errors.halaman)}
-                            helperText={errors.halaman}
-                            slotProps={{ htmlInput: { inputMode: 'numeric' } }}
-                            fullWidth
-                        />
+                <DialogContent sx={{ p: 3, display: 'grid', gap: 2 }}>
+                    {tabDialog === 0 ? (
+                        <>
+                            <TextField
+                                select
+                                label="Santri"
+                                name="nis"
+                                value={form.nis}
+                                onChange={ubahForm}
+                                error={Boolean(errors.nis)}
+                                helperText={errors.nis}
+                                fullWidth
+                            >
+                                {santriList.map((s) => (
+                                    <MenuItem key={s.nis} value={s.nis}>{s.nama}</MenuItem>
+                                ))}
+                            </TextField>
 
-                        <TextField
-                            select
-                            label="Nilai"
-                            name="nilai"
-                            value={form.nilai}
-                            onChange={ubahForm}
-                            error={Boolean(errors.nilai)}
-                            helperText={errors.nilai}
-                            fullWidth
-                        >
-                            {NILAI.map((n) => (
-                                <MenuItem key={n} value={n}>{n}</MenuItem>
-                            ))}
-                        </TextField>
-                    </Box>
+                            {santriTerpilih && (
+                                <Box
+                                    sx={{
+                                        p: 1.5,
+                                        bgcolor: palette.honeydew,
+                                        borderRadius: 2,
+                                        border: `1px solid ${palette.aquamarine}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 1,
+                                    }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="caption" sx={{ color: palette.turfGreen, fontWeight: 700, display: 'block' }}>
+                                            {setoranTerakhir ? 'SETORAN TERAKHIR:' : `RIWAYAT BULAN ${formatBulanLabel(bulanRiwayat).toUpperCase()}:`}
+                                        </Typography>
+                                        {setoranTerakhir ? (
+                                            <>
+                                                <Typography variant="body2" sx={{ fontWeight: 600, color: palette.pineTeal }}>
+                                                    {setoranTerakhir.surat} ({setoranTerakhir.halaman} hal) • Nilai: {setoranTerakhir.nilai}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {formatTanggal(setoranTerakhir.tanggal)} • {setoranTerakhir.jenis}
+                                                    {setoranTerakhir.catatan ? ` • "${setoranTerakhir.catatan}"` : ''}
+                                                </Typography>
+                                            </>
+                                        ) : (
+                                            <Typography variant="body2" color="text.secondary">
+                                                Belum ada riwayat setoran pada {formatBulanLabel(bulanRiwayat)}.
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    <Button
+                                        type="button"
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => setTabDialog(1)}
+                                        sx={{
+                                            fontSize: 12,
+                                            whiteSpace: 'nowrap',
+                                            borderColor: palette.shamrock,
+                                            color: palette.pineTeal,
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        Lihat Riwayat ({riwayatSantriBulan.length})
+                                    </Button>
+                                </Box>
+                            )}
 
-                    <TextField
-                        label="Catatan (tidak wajib)"
-                        name="catatan"
-                        value={form.catatan}
-                        onChange={ubahForm}
-                        helperText="Masukan untuk santri. Contoh: perbaiki makhraj huruf ض."
-                        multiline
-                        minRows={2}
-                        fullWidth
-                    />
+                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                                <TextField
+                                    select
+                                    label="Jenis"
+                                    name="jenis"
+                                    value={form.jenis}
+                                    onChange={ubahForm}
+                                    fullWidth
+                                >
+                                    {JENIS.map((j) => (
+                                        <MenuItem key={j} value={j}>{j}</MenuItem>
+                                    ))}
+                                </TextField>
 
-                    {form.jenis === "Muraja'ah" && (
-                        <Alert severity="info">
-                            Muraja'ah dicatat terpisah dan tidak dihitung ke target {TARGET} halaman.
-                        </Alert>
+                                <TextField
+                                    label="Tanggal"
+                                    name="tanggal"
+                                    type="date"
+                                    value={form.tanggal}
+                                    onChange={ubahForm}
+                                    error={Boolean(errors.tanggal)}
+                                    helperText={errors.tanggal}
+                                    slotProps={{
+                                        inputLabel: { shrink: true },
+                                        htmlInput: { max: hariIni },
+                                    }}
+                                    fullWidth
+                                />
+                            </Box>
+
+                            <TextField
+                                label="Surat / ayat"
+                                name="surat"
+                                value={form.surat}
+                                onChange={ubahForm}
+                                error={Boolean(errors.surat)}
+                                helperText={errors.surat || 'Contoh: An-Naba 1-20 atau Juz 29'}
+                                fullWidth
+                            />
+
+                            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                                <TextField
+                                    label="Jumlah halaman"
+                                    name="halaman"
+                                    value={form.halaman}
+                                    onChange={ubahHalaman}
+                                    error={Boolean(errors.halaman)}
+                                    helperText={errors.halaman}
+                                    slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+                                    fullWidth
+                                />
+
+                                <TextField
+                                    select
+                                    label="Nilai"
+                                    name="nilai"
+                                    value={form.nilai}
+                                    onChange={ubahForm}
+                                    error={Boolean(errors.nilai)}
+                                    helperText={errors.nilai}
+                                    fullWidth
+                                >
+                                    {NILAI.map((n) => (
+                                        <MenuItem key={n} value={n}>{n}</MenuItem>
+                                    ))}
+                                </TextField>
+                            </Box>
+
+                            <TextField
+                                label="Catatan (tidak wajib)"
+                                name="catatan"
+                                value={form.catatan}
+                                onChange={ubahForm}
+                                helperText="Masukan untuk santri. Contoh: perbaiki makhraj huruf ض."
+                                multiline
+                                minRows={2}
+                                fullWidth
+                            />
+
+                            {form.jenis === "Muraja'ah" && (
+                                <Alert severity="info">
+                                    Muraja'ah dicatat terpisah dan tidak dihitung ke target {TARGET} halaman.
+                                </Alert>
+                            )}
+                        </>
+                    ) : (
+                        <Box sx={{ display: 'grid', gap: 2 }}>
+                            {/* Pilihan santri & bulan riwayat */}
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.4fr 1fr' }, gap: 2 }}>
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Pilih Santri"
+                                    name="nis"
+                                    value={form.nis}
+                                    onChange={ubahForm}
+                                    fullWidth
+                                >
+                                    {santriList.map((s) => (
+                                        <MenuItem key={s.nis} value={s.nis}>{s.nama}</MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Pilih Bulan Riwayat"
+                                    value={bulanRiwayat}
+                                    onChange={(e) => setBulanRiwayat(e.target.value)}
+                                    fullWidth
+                                >
+                                    {daftarBulan.map((bln) => (
+                                        <MenuItem key={bln} value={bln}>
+                                            {formatBulanLabel(bln)}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Box>
+
+                            {!form.nis ? (
+                                <Alert severity="info">
+                                    Silakan pilih santri terlebih dahulu untuk melihat riwayat setoran hafalan per bulan.
+                                </Alert>
+                            ) : riwayatSantriBulan.length === 0 ? (
+                                <Box sx={{ textAlign: 'center', py: 4, bgcolor: '#fafafa', borderRadius: 2 }}>
+                                    <Typography color="text.secondary">
+                                        Belum ada riwayat setoran untuk <strong>{santriTerpilih?.nama}</strong> pada bulan <strong>{formatBulanLabel(bulanRiwayat)}</strong>.
+                                    </Typography>
+                                    <Button
+                                        type="button"
+                                        variant="contained"
+                                        size="small"
+                                        sx={{ mt: 2 }}
+                                        onClick={() => setTabDialog(0)}
+                                    >
+                                        Catat Setoran Baru
+                                    </Button>
+                                </Box>
+                            ) : (
+                                <>
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap',
+                                            gap: 1,
+                                            p: 1.5,
+                                            bgcolor: palette.honeydew,
+                                            borderRadius: 2,
+                                            border: `1px solid ${palette.aquamarine}`,
+                                        }}
+                                    >
+                                        <Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: palette.pineTeal }}>
+                                                Riwayat Bulan {formatBulanLabel(bulanRiwayat)} · {santriTerpilih?.nama}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {riwayatSantriBulan.length} kali setoran dicatat
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Chip
+                                                size="small"
+                                                label={`Capaian: ${progresBulanDipilih}/${TARGET} halaman`}
+                                                sx={{ fontWeight: 600, bgcolor: palette.frostedMint, color: palette.pineTeal }}
+                                            />
+                                            <Chip
+                                                size="small"
+                                                label={statusBulanDipilih}
+                                                color={WARNA_STATUS[statusBulanDipilih]}
+                                                sx={{ fontWeight: 600 }}
+                                            />
+                                        </Box>
+                                    </Box>
+
+                                    <TableContainer
+                                        sx={{
+                                            maxHeight: 320,
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                            borderRadius: 2,
+                                        }}
+                                    >
+                                        <Table size="small" stickyHeader>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell sx={{ bgcolor: palette.emeraldDeep, color: '#fff', fontWeight: 600 }}>Tanggal</TableCell>
+                                                    <TableCell sx={{ bgcolor: palette.emeraldDeep, color: '#fff', fontWeight: 600 }}>Jenis</TableCell>
+                                                    <TableCell sx={{ bgcolor: palette.emeraldDeep, color: '#fff', fontWeight: 600 }}>Surah/Ayat</TableCell>
+                                                    <TableCell align="center" sx={{ bgcolor: palette.emeraldDeep, color: '#fff', fontWeight: 600 }}>Halaman</TableCell>
+                                                    <TableCell align="center" sx={{ bgcolor: palette.emeraldDeep, color: '#fff', fontWeight: 600 }}>Nilai</TableCell>
+                                                    <TableCell sx={{ bgcolor: palette.emeraldDeep, color: '#fff', fontWeight: 600 }}>Catatan</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {riwayatSantriBulan.map((r) => (
+                                                    <TableRow key={r.id} hover>
+                                                        <TableCell sx={{ whiteSpace: 'nowrap', fontSize: 13 }}>
+                                                            {formatTanggal(r.tanggal)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Chip
+                                                                label={r.jenis}
+                                                                size="small"
+                                                                sx={{
+                                                                    fontSize: 11,
+                                                                    fontWeight: 600,
+                                                                    bgcolor: WARNA_JENIS[r.jenis]?.bg ?? palette.frostedMint,
+                                                                    color: WARNA_JENIS[r.jenis]?.text ?? palette.pineTeal,
+                                                                }}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell sx={{ fontWeight: 600, fontSize: 13 }}>{r.surat}</TableCell>
+                                                        <TableCell align="center" sx={{ fontSize: 13 }}>{r.halaman}</TableCell>
+                                                        <TableCell align="center">
+                                                            <Chip
+                                                                label={r.nilai}
+                                                                size="small"
+                                                                color={warnaNilai(r.nilai)}
+                                                                sx={{ fontWeight: 700, minWidth: 32, height: 22, fontSize: 11 }}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell sx={{ fontSize: 12, color: 'text.secondary', maxWidth: 180 }}>
+                                                            {r.catatan || '-'}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </>
+                            )}
+                        </Box>
                     )}
                 </DialogContent>
 
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={tutupDialog}>Batal</Button>
-                    <Button type="submit" variant="contained">Simpan Setoran</Button>
+                <DialogActions sx={{ px: 3, pb: 2, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                    {tabDialog === 0 ? (
+                        <>
+                            <Button type="button" onClick={tutupDialog}>Batal</Button>
+                            {form.nis && riwayatSantriBulan.length > 0 && (
+                                <Button
+                                    type="button"
+                                    onClick={() => setTabDialog(1)}
+                                    sx={{ mr: 'auto', textTransform: 'none', color: palette.turfGreen }}
+                                >
+                                    Lihat Riwayat {formatBulanLabel(bulanRiwayat)} ({riwayatSantriBulan.length})
+                                </Button>
+                            )}
+                            <Button type="submit" variant="contained">Simpan Setoran</Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button type="button" onClick={tutupDialog}>Tutup</Button>
+                            <Button type="button" variant="contained" onClick={() => setTabDialog(0)}>
+                                + Catat Setoran Baru
+                            </Button>
+                        </>
+                    )}
                 </DialogActions>
             </Dialog>
 

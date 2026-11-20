@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box, Button, Card, CardContent, Chip, InputAdornment, List, ListItemButton,
@@ -15,13 +15,42 @@ import { palette } from '../../theme/theme';
 // TODO: ganti data dummy ini dengan data dari API backend.
 const STATS = { totalSantri: 45, totalUstadz: 17, totalKelompok: 6 };
 
-const SETORAN_TERBARU = [
-    { id: 1, santri: 'Ahmad Fauzan', surat: 'An-Naba', ayat: '1-20', nilai: 'A' },
-    { id: 2, santri: 'Ahmad Fauzan', surat: 'An-Naba', ayat: '1-20', nilai: 'A' },
-    { id: 3, santri: 'Ahmad Fauzan', surat: 'An-Naba', ayat: '1-20', nilai: 'B' },
-    { id: 4, santri: 'Ahmad Fauzan', surat: 'An-Naba', ayat: '1-20', nilai: 'A' },
-    { id: 5, santri: 'Ahmad Fauzan', surat: 'An-Naba', ayat: '1-20', nilai: 'C' },
+// Data setoran diambil dari halaman Hafalan, Target & Beasiswa (FR-04)
+const SETORAN_HAFALAN = [
+    { id: 1, tanggal: '2026-10-03', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'An-Naba 1-20', halaman: 5 },
+    { id: 2, tanggal: '2026-10-08', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'An-Naba 21-40', halaman: 5 },
+    { id: 3, tanggal: '2026-10-10', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: "Muraja'ah", surat: 'Juz 29', halaman: 4 },
+    { id: 4, tanggal: '2026-10-12', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'Al-Mursalat 1-25', halaman: 5 },
+    { id: 5, tanggal: '2026-10-16', santri: 'Ahmad Fauzan', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'Al-Mursalat 26-50', halaman: 5 },
+    { id: 6, tanggal: '2026-10-05', santri: 'Tesa Damayanti', kelompok: 'Al-Nur', jenis: 'Hafalan', surat: 'An-Naziat 1-46', halaman: 7 },
+    { id: 7, tanggal: '2026-10-15', santri: 'Tesa Damayanti', kelompok: 'Al-Nur', jenis: 'Hafalan', surat: 'Abasa 1-42', halaman: 7 },
+    { id: 8, tanggal: '2026-10-09', santri: 'Citra Anggun', kelompok: 'Ar-Rahman', jenis: 'Hafalan', surat: 'An-Naba 1-20', halaman: 4 },
+    { id: 9, tanggal: '2026-10-17', santri: 'Citra Anggun', kelompok: 'Ar-Rahman', jenis: 'Hafalan', surat: 'An-Naba 21-40', halaman: 3 },
+    { id: 10, tanggal: '2026-10-06', santri: 'Rizki Hanafi', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'At-Takwir 1-29', halaman: 6 },
+    { id: 11, tanggal: '2026-10-14', santri: 'Rizki Hanafi', kelompok: 'Al-Fatih', jenis: 'Hafalan', surat: 'Al-Infitar 1-19', halaman: 6 },
+    { id: 12, tanggal: '2026-10-02', santri: 'Mhd. Iqbal', kelompok: 'Al-Nur', jenis: 'Hafalan', surat: 'Al-Mulk 1-30', halaman: 10 },
+    { id: 13, tanggal: '2026-10-13', santri: 'Mhd. Iqbal', kelompok: 'Al-Nur', jenis: 'Hafalan', surat: 'Al-Qalam 1-52', halaman: 10 },
+    { id: 14, tanggal: '2026-10-11', santri: 'Miftahul Jannah', kelompok: 'Ar-Rahman', jenis: "Muraja'ah", surat: 'Juz 30', halaman: 3 },
 ];
+
+const TARGET = 20; // target 20 halaman per bulan
+const BULAN = { tahun: 2026, bulan: 10 };
+const TANGGAL_REF = '2026-10-17';
+const hariBulan = new Date(BULAN.tahun, BULAN.bulan, 0).getDate();
+const hariBerjalan = Number(TANGGAL_REF.slice(8, 10));
+const targetSampaiHariIni = (TARGET * hariBerjalan) / hariBulan;
+
+// Status beasiswa otomatis berdasarkan capaian target bulanan (FR-04)
+const statusBeasiswa = (progres) => {
+    if (progres >= TARGET) return 'Tercapai';
+    return progres < targetSampaiHariIni ? 'Tertinggal' : 'Belum tercapai';
+};
+
+const WARNA_STATUS = {
+    Tercapai: 'success',
+    'Belum tercapai': 'warning',
+    Tertinggal: 'error',
+};
 
 const VERIFIKASI = [
     { id: 1, santri: 'Ahmad Fauzan', tagihan: 'SPP September' },
@@ -30,8 +59,6 @@ const VERIFIKASI = [
     { id: 4, santri: 'Rizki Hanafi', tagihan: 'SPP Agustus' },
     { id: 5, santri: 'Citra Anggun', tagihan: 'SPP Oktober' },
 ];
-
-const GRADE_COLOR = { A: 'success', B: 'primary', C: 'warning', D: 'error' };
 
 function StatCard({ label, value, icon: Icon }) {
     return (
@@ -79,10 +106,37 @@ export default function AdminDashboard() {
     const navigate = useNavigate();
     const [query, setQuery] = useState('');
 
+    // Hitung progres hafalan per santri untuk menentukan status beasiswa (FR-04)
+    const progresSantri = useMemo(() => {
+        const hasil = {};
+        SETORAN_HAFALAN.forEach((s) => {
+            if (s.jenis === 'Hafalan' && s.tanggal?.startsWith(`${BULAN.tahun}-${BULAN.bulan}`)) {
+                hasil[s.santri] = (hasil[s.santri] ?? 0) + s.halaman;
+            }
+        });
+        return hasil;
+    }, []);
+
+    // Urutkan setoran terbaru terlebih dahulu
+    const daftarSorted = useMemo(() => {
+        return [...SETORAN_HAFALAN].sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.id - a.id);
+    }, []);
+
+    // Filter berdasarkan nama santri (hanya memfilter tabel, tidak berpindah halaman)
+    const terfilter = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return daftarSorted;
+        return daftarSorted.filter((s) => s.santri.toLowerCase().includes(q));
+    }, [query, daftarSorted]);
+
+    // Jika sedang mencari, tampilkan semua yang cocok; jika tidak mencari, tampilkan 5 setoran terbaru
+    const tampil = useMemo(() => {
+        return query.trim() ? terfilter : terfilter.slice(0, 5);
+    }, [query, terfilter]);
+
     const handleSearch = (e) => {
         e.preventDefault();
-        const q = query.trim();
-        navigate(q ? `/admin/santri?q=${encodeURIComponent(q)}` : '/admin/santri');
+        // Hanya memfilter data pada tabel di halaman ini, tidak mengarahkan pengguna ke halaman lain
     };
 
     return (
@@ -94,7 +148,7 @@ export default function AdminDashboard() {
                 <StatCard label="Kelompok Tahfidz" value={STATS.totalKelompok} icon={GroupsIcon} />
             </Box>
 
-            {/* Cari santri */}
+            {/* Cari santri: memfilter tabel setoran hafalan langsung di dashboard */}
             <Box component="form" onSubmit={handleSearch} sx={{ maxWidth: 420 }}>
                 <TextField
                     fullWidth
@@ -130,7 +184,7 @@ export default function AdminDashboard() {
                     gridTemplateColumns: { xs: '1fr', lg: '3fr 2fr' },
                 }}
             >
-                {/* Setoran Hafalan Terbaru: judul dan nama kolom satu header */}
+                {/* Setoran Hafalan Terbaru: 3 kolom (Nama Santri, Surah/Ayat, Status Beasiswa) */}
                 <Card sx={{ height: '100%', borderColor: palette.emeraldDeep, overflow: 'hidden' }}>
                     <TableContainer>
                         <Table size="small">
@@ -162,38 +216,49 @@ export default function AdminDashboard() {
                                     </TableCell>
                                 </TableRow>
 
-                                {/* Baris 2: nama kolom */}
+                                {/* Baris 2: nama kolom (3 kolom) */}
                                 <TableRow>
-                                    <TableCell sx={{ color: palette.frostedMint, pt: 0.5 }}>Santri</TableCell>
-                                    <TableCell sx={{ color: palette.frostedMint, pt: 0.5 }}>Surat/ayat</TableCell>
-                                    <TableCell align="center" sx={{ color: palette.frostedMint, pt: 0.5 }}>
-                                        Nilai
+                                    <TableCell sx={{ color: palette.frostedMint, pt: 0.5, fontWeight: 700 }}>
+                                        Nama Santri
+                                    </TableCell>
+                                    <TableCell sx={{ color: palette.frostedMint, pt: 0.5, fontWeight: 700 }}>
+                                        Surah/Ayat
+                                    </TableCell>
+                                    <TableCell align="center" sx={{ color: palette.frostedMint, pt: 0.5, fontWeight: 700 }}>
+                                        Status Beasiswa
                                     </TableCell>
                                 </TableRow>
                             </TableHead>
 
                             <TableBody>
-                                {SETORAN_TERBARU.map((s) => (
-                                    <TableRow key={s.id} hover>
-                                        <TableCell sx={{ fontWeight: 600 }}>{s.santri}</TableCell>
-                                        <TableCell>{s.surat} {s.ayat}</TableCell>
-                                        <TableCell align="center">
-                                            <Chip
-                                                label={s.nilai}
-                                                size="small"
-                                                color={GRADE_COLOR[s.nilai] ?? 'default'}
-                                                sx={{ fontWeight: 700, minWidth: 36 }}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {tampil.map((s) => {
+                                    const progres = progresSantri[s.santri] ?? 0;
+                                    const status = statusBeasiswa(progres);
+
+                                    return (
+                                        <TableRow key={s.id} hover>
+                                            <TableCell sx={{ fontWeight: 600 }}>{s.santri}</TableCell>
+                                            <TableCell>{s.surat}</TableCell>
+                                            <TableCell align="center">
+                                                <Chip
+                                                    label={status}
+                                                    size="small"
+                                                    color={WARNA_STATUS[status] ?? 'default'}
+                                                    sx={{ fontWeight: 600, minWidth: 100 }}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                     </TableContainer>
 
-                    {SETORAN_TERBARU.length === 0 && (
+                    {tampil.length === 0 && (
                         <EmptyState>
-                            Belum ada setoran hafalan. Setoran yang dicatat ustadz akan muncul di sini.
+                            {query.trim()
+                                ? `Tidak ada santri dengan nama "${query}" pada data setoran.`
+                                : 'Belum ada setoran hafalan.'}
                         </EmptyState>
                     )}
                 </Card>

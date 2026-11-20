@@ -21,7 +21,7 @@ import { palette } from '../../theme/theme';
 // Di backend, password wajib di-hash dan tidak boleh dikirim kembali ke browser.
 const KUNCI = 'dataSantri';
 
-// Kelompok dan pembimbingnya diambil dari halaman Kelompok Tahfidz (FR-04),
+// Kelompok dan pembimbingnya diambil dari halaman Kelompok Tahfidz (FR-03),
 // jadi pembimbing tidak diisi manual di form santri.
 const KUNCI_KELOMPOK = 'dataKelompok';
 const KELOMPOK_DEFAULT = [
@@ -48,7 +48,7 @@ const muatKelompok = () => {
 const STATUS = ['Aktif', 'Non-Aktif'];
 const PER_PAGE = 10;
 
-// beasiswa: true = penerima. Diisi otomatis oleh sistem dari capaian bulanan (FR-07),
+// beasiswa: true = penerima. Diisi otomatis oleh sistem dari capaian bulanan (FR-04),
 // jadi tidak bisa diubah dari form ini.
 // password: akun login santri (username-nya adalah NIS).
 // Santri berstatus Non-Aktif tidak bisa login.

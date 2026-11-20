@@ -20,7 +20,7 @@ import { palette } from '../../theme/theme';
 // Di backend, password wajib di-hash dan tidak boleh dikirim kembali ke browser.
 const KUNCI = 'dataUstadz';
 
-// Kelompok dikelola di halaman Kelompok Tahfidz (FR-04); di sini hanya dipilih.
+// Kelompok dikelola di halaman Kelompok Tahfidz (FR-03); di sini hanya dipilih.
 const KUNCI_KELOMPOK = 'dataKelompok';
 const KELOMPOK_DEFAULT = ['Al-Fatih', 'Al-Nur', 'Ar-Rahman', 'Al-Ikhlas', 'Al-Falah', 'An-Naba'];
 

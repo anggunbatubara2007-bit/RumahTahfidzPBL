@@ -9,7 +9,7 @@ import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined
 import { palette } from '../../theme/theme';
 
 // TODO: ganti penyimpanan localStorage ini dengan API backend.
-// Bukti transfer diunggah santri (FR-26). Nanti halaman santri menambahkan data ke
+// Bukti transfer diunggah santri (FR-15) dan diverifikasi admin (FR-06). Nanti halaman santri menambahkan data ke
 // 'buktiTransfer' dan mengubah status tagihannya menjadi "Menunggu verifikasi".
 const KUNCI = 'buktiTransfer';
 const KUNCI_TAGIHAN = 'dataTagihanSpp'; // dikelola di halaman Data SPP

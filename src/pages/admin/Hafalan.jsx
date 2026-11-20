@@ -7,7 +7,7 @@ import Timer from '@mui/icons-material/Timer';
 import { palette } from '../../theme/theme';
 
 // TODO: ganti data dummy ini dengan data dari API backend.
-// Setoran dicatat ustadz (FR-13, FR-14). Di sini admin hanya melihat.
+// Setoran dicatat ustadz (FR-09). Di sini admin hanya melihat seluruh data hafalan (FR-04).
 
 const TARGET = 20; // halaman per bulan (1 juz)
 const BULAN = { tahun: 2026, bulan: 10, nama: 'Oktober 2026' };
@@ -57,7 +57,7 @@ const hariBulan = new Date(BULAN.tahun, BULAN.bulan, 0).getDate();
 const hariBerjalan = Number(TANGGAL_REF.slice(8, 10));
 const targetSampaiHariIni = (TARGET * hariBerjalan) / hariBulan;
 
-// Beasiswa otomatis (FR-07): Tercapai bila sudah 20 halaman.
+// Beasiswa otomatis (FR-04): Tercapai bila sudah 20 halaman.
 // Selain itu, Tertinggal bila di bawah laju yang dibutuhkan, selebihnya Belum tercapai.
 const statusBeasiswa = (progres) => {
     if (progres >= TARGET) return 'Tercapai';
@@ -83,7 +83,7 @@ export default function Hafalan() {
     const [kelompok, setKelompok] = useState('all');
     const [halaman, setHalaman] = useState(1);
 
-    // Progres bulan ini per santri: hanya setoran hafalan baru yang dihitung (FR-06)
+    // Progres bulan ini per santri: hanya setoran hafalan baru yang dihitung (FR-04)
     const progresSantri = useMemo(() => {
         const hasil = {};
         SETORAN.forEach((s) => {

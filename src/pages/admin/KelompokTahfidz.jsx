@@ -13,7 +13,7 @@ import { palette } from '../../theme/theme';
 
 // TODO: ganti penyimpanan localStorage ini dengan API backend.
 // Jumlah santri dan rerata capaian bersifat dummy: nanti dihitung otomatis dari
-// data santri (FR-02) dan capaian target bulanan (FR-06), bukan diisi manual.
+// data santri (FR-02) dan capaian target bulanan (FR-04), bukan diisi manual.
 const KUNCI = 'dataKelompok';
 const KUNCI_USTADZ = 'dataUstadz';
 

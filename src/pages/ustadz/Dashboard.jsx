@@ -12,7 +12,7 @@ import CalendarMonth from '@mui/icons-material/CalendarMonth';
 import { palette } from '../../theme/theme';
 
 // TODO: ganti data dummy ini dengan data dari API backend.
-// Angka ringkasan nanti dihitung dari data santri bimbingan ustadz yang login (FR-12, FR-18).
+// Angka ringkasan nanti dihitung dari data santri bimbingan ustadz yang login (FR-08, FR-09, FR-10).
 const STATISTIK = [
     { title: 'Santri bimbingan', value: '18', satuan: 'santri', icon: Groups },
     { title: 'Setoran hari ini', value: '6', satuan: 'setoran', icon: MenuBook },
