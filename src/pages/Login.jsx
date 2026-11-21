@@ -1,5 +1,7 @@
+
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+
 import {
     Box,
     Container,
@@ -7,7 +9,6 @@ import {
     Typography,
     TextField,
     Button,
-    MenuItem,
     InputAdornment,
     IconButton,
     Alert,
@@ -18,32 +19,44 @@ import {
     Visibility,
     VisibilityOff,
     LockOutlined,
-    BadgeOutlined,
     PersonOutlined,
 } from "@mui/icons-material";
 
 import { useAuth, HOME_BY_ROLE } from "./auth";
 
-const roles = [
-    { value: "admin", label: "Admin" },
-    { value: "ustadz", label: "Ustadz" },
-    { value: "santri", label: "Santri" },
-];
-
-// TODO: hapus akun dummy ini saat backend sudah ada,
-// ganti dengan pemanggilan API login.
-// Santri login dengan NIS, Admin dan Ustadz dengan username.
+// Akun dummy sementara.
+// Nanti akan diganti dengan API dari backend MySQL.
 const USERS = [
-    { id: 1, username: "admin", password: "admin123", nama: "Admin RSQ", role: "admin" },
-    { id: 2, username: "Hilman", password: "Hilman123", nama: "Ust. Hilman", kelompok: "Al-Fatih", jumlahSantri: 18, role: "ustadz" },
-    { id: 3, nis: "2024001", password: "santri123", nama: "Ahmad Fauzan", role: "santri" },
+    {
+        id: 1,
+        username: "admin",
+        password: "admin123",
+        nama: "Admin RSQ",
+        role: "admin",
+    },
+    {
+        id: 2,
+        username: "Hilman",
+        password: "Hilman123",
+        nama: "Ust. Hilman",
+        kelompok: "Al-Fatih",
+        jumlahSantri: 18,
+        role: "ustadz",
+    },
+    {
+        id: 3,
+        nis: "2024001",
+        password: "santri123",
+        nama: "Ahmad Fauzan",
+        role: "santri",
+    },
 ];
 
-// Akun ustadz diambil dari data yang dikelola admin (halaman Data Ustadz).
-// Kalau admin belum pernah membuka halaman itu, pakai akun dummy di USERS.
+// Mengambil akun Ustadz dari data yang dikelola Admin.
 const semuaAkun = () => {
     try {
         const saved = JSON.parse(localStorage.getItem("dataUstadz"));
+
         if (Array.isArray(saved)) {
             const ustadz = saved.map((u) => ({
                 id: `ustadz-${u.id}`,
@@ -53,11 +66,16 @@ const semuaAkun = () => {
                 kelompok: u.kelompok,
                 role: "ustadz",
             }));
-            return [...USERS.filter((u) => u.role !== "ustadz"), ...ustadz];
+
+            return [
+                ...USERS.filter((u) => u.role !== "ustadz"),
+                ...ustadz,
+            ];
         }
     } catch {
-        /* data rusak: pakai akun dummy */
+        // Jika data rusak, gunakan akun dummy.
     }
+
     return USERS;
 };
 
@@ -66,8 +84,7 @@ export default function Login() {
     const navigate = useNavigate();
 
     const [form, setForm] = useState({
-        role: "admin",
-        identifier: "", // NIS (santri) atau username (admin/ustadz)
+        identifier: "",
         password: "",
     });
 
@@ -75,11 +92,15 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [loginError, setLoginError] = useState("");
 
-    // Sudah login: langsung ke halaman sesuai role
-    if (user) return <Navigate to={HOME_BY_ROLE[user.role]} replace />;
-
-    const isSantri = form.role === "santri";
-    const identifierLabel = isSantri ? "NIS" : "Username";
+    // Jika sudah login, langsung arahkan sesuai role.
+    if (user) {
+        return (
+            <Navigate
+                to={HOME_BY_ROLE[user.role]}
+                replace
+            />
+        );
+    }
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -87,14 +108,11 @@ export default function Login() {
         setForm((previous) => ({
             ...previous,
             [name]: value,
-            // ganti role: kosongkan kolom NIS/username agar tidak tertukar
-            ...(name === "role" ? { identifier: "" } : {}),
         }));
 
         setErrors((previous) => ({
             ...previous,
             [name]: "",
-            ...(name === "role" ? { identifier: "" } : {}),
         }));
 
         setLoginError("");
@@ -106,14 +124,8 @@ export default function Login() {
         const newErrors = {};
         const identifier = form.identifier.trim();
 
-        if (!form.role) {
-            newErrors.role = "Silakan pilih role.";
-        }
-
         if (!identifier) {
-            newErrors.identifier = `${identifierLabel} wajib diisi.`;
-        } else if (isSantri && !/^\d+$/.test(identifier)) {
-            newErrors.identifier = "NIS hanya boleh berisi angka.";
+            newErrors.identifier = "Username atau NIS wajib diisi.";
         }
 
         if (!form.password) {
@@ -126,25 +138,41 @@ export default function Login() {
             return;
         }
 
-        // Login dummy: NIS/username, password, dan role harus cocok
+        // Mencari akun berdasarkan username atau NIS.
+        // Role akan dikenali otomatis dari data akun.
         const found = semuaAkun().find((u) => {
-            if (u.role !== form.role || u.password !== form.password) return false;
-            return isSantri
-                ? u.nis === identifier
-                : u.username === identifier.toLowerCase();
+            const cocokUsername =
+                u.username &&
+                u.username.toLowerCase() === identifier.toLowerCase();
+
+            const cocokNIS =
+                u.nis &&
+                u.nis === identifier;
+
+            return (
+                (cocokUsername || cocokNIS) &&
+                u.password === form.password
+            );
         });
 
         if (!found) {
             setLoginError(
-                `${identifierLabel}, password, atau role tidak sesuai. Periksa lagi lalu coba masuk kembali.`
+                "Username/NIS atau password tidak sesuai. Periksa kembali akun kamu."
             );
             return;
         }
 
+        // Jangan menyimpan password ke localStorage.
         const safeUser = { ...found };
-        delete safeUser.password; // jangan simpan password
+        delete safeUser.password;
+
+        // Simpan informasi pengguna.
         login(safeUser);
-        navigate(HOME_BY_ROLE[safeUser.role], { replace: true });
+
+        // Arahkan berdasarkan role akun.
+        navigate(HOME_BY_ROLE[safeUser.role], {
+            replace: true,
+        });
     };
 
     return (
@@ -185,7 +213,10 @@ export default function Login() {
                 }}
             />
 
-            <Container maxWidth="sm" sx={{ position: "relative" }}>
+            <Container
+                maxWidth="sm"
+                sx={{ position: "relative" }}
+            >
                 <Paper
                     elevation={4}
                     sx={{
@@ -195,7 +226,12 @@ export default function Login() {
                     }}
                 >
                     {/* Logo dan identitas */}
-                    <Box sx={{ textAlign: "center", mb: 3 }}>
+                    <Box
+                        sx={{
+                            textAlign: "center",
+                            mb: 3,
+                        }}
+                    >
                         <Box
                             component="img"
                             src="/logo.png"
@@ -212,84 +248,89 @@ export default function Login() {
 
                         <Typography
                             variant="h5"
-                            sx={{ fontWeight: 700, color: "#064E3B" }}
+                            sx={{
+                                fontWeight: 700,
+                                color: "#064E3B",
+                            }}
                         >
                             Pondok Tahfidz RSQ
                         </Typography>
 
                         <Typography
                             variant="body2"
-                            sx={{ color: "#047857", mt: 1 }}
+                            sx={{
+                                color: "#047857",
+                                mt: 1,
+                            }}
                         >
                             Aplikasi Pengelolaan Pondok Tahfidz
                         </Typography>
                     </Box>
 
-                    <Divider sx={{ borderColor: "#D1FAE5", mb: 3 }} />
+                    <Divider
+                        sx={{
+                            borderColor: "#D1FAE5",
+                            mb: 3,
+                        }}
+                    />
 
                     <Typography
                         variant="h6"
-                        sx={{ fontWeight: 700, color: "#064E3B" }}
+                        sx={{
+                            fontWeight: 700,
+                            color: "#064E3B",
+                        }}
                     >
                         Selamat Datang!
                     </Typography>
 
                     <Typography
                         variant="body2"
-                        sx={{ color: "text.secondary", mb: 3, mt: 0.5 }}
+                        sx={{
+                            color: "text.secondary",
+                            mb: 3,
+                            mt: 0.5,
+                        }}
                     >
                         Silakan masuk menggunakan akun yang telah
                         diberikan oleh administrator.
                     </Typography>
 
+                    {/* Pesan kesalahan login */}
                     {loginError && (
                         <Alert
                             severity="error"
-                            sx={{ mb: 2, overflowWrap: "anywhere" }}
+                            sx={{
+                                mb: 2,
+                                overflowWrap: "anywhere",
+                            }}
                         >
                             {loginError}
                         </Alert>
                     )}
 
-                    <Box component="form" onSubmit={handleSubmit} noValidate>
-                        {/* Role */}
+                    <Box
+                        component="form"
+                        onSubmit={handleSubmit}
+                        noValidate
+                    >
+                        {/* Username atau NIS */}
                         <Typography
                             variant="body2"
-                            sx={{ mb: 1, fontWeight: 600, color: "#064E3B" }}
+                            sx={{
+                                mb: 1,
+                                fontWeight: 600,
+                                color: "#064E3B",
+                            }}
                         >
-                            Masuk sebagai
-                        </Typography>
-
-                        <TextField
-                            fullWidth
-                            select
-                            name="role"
-                            value={form.role}
-                            onChange={handleChange}
-                            error={Boolean(errors.role)}
-                            helperText={errors.role}
-                            sx={{ mb: 2.5 }}
-                        >
-                            {roles.map((role) => (
-                                <MenuItem key={role.value} value={role.value}>
-                                    {role.label}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-
-                        {/* NIS (santri) atau Username (admin/ustadz) */}
-                        <Typography
-                            variant="body2"
-                            sx={{ mb: 1, fontWeight: 600, color: "#064E3B" }}
-                        >
-                            {identifierLabel}
+                            Username atau NIS
                         </Typography>
 
                         <TextField
                             fullWidth
                             name="identifier"
                             type="text"
-                            placeholder={`Masukkan ${identifierLabel}`}
+                            placeholder="Masukkan username atau NIS"
                             value={form.identifier}
                             onChange={handleChange}
                             error={Boolean(errors.identifier)}
@@ -298,21 +339,22 @@ export default function Login() {
                             sx={{ mb: 2.5 }}
                             slotProps={{
                                 htmlInput: {
-                                    inputMode: isSantri ? "numeric" : "text",
+                                    inputMode: "text",
                                 },
                                 input: {
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            {isSantri ? (
-                                                <BadgeOutlined sx={{ color: "#059669" }} />
-                                            ) : (
-                                                <PersonOutlined sx={{ color: "#059669" }} />
-                                            )}
+                                            <PersonOutlined
+                                                sx={{ color: "#059669" }}
+                                            />
                                         </InputAdornment>
                                     ),
                                 },
                                 formHelperText: {
-                                    sx: { color: "#D32F2F", mx: 0 },
+                                    sx: {
+                                        color: "#D32F2F",
+                                        mx: 0,
+                                    },
                                 },
                             }}
                         />
@@ -320,7 +362,11 @@ export default function Login() {
                         {/* Password */}
                         <Typography
                             variant="body2"
-                            sx={{ mb: 1, fontWeight: 600, color: "#064E3B" }}
+                            sx={{
+                                mb: 1,
+                                fontWeight: 600,
+                                color: "#064E3B",
+                            }}
                         >
                             Password
                         </Typography>
@@ -340,14 +386,18 @@ export default function Login() {
                                 input: {
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <LockOutlined sx={{ color: "#059669" }} />
+                                            <LockOutlined
+                                                sx={{ color: "#059669" }}
+                                            />
                                         </InputAdornment>
                                     ),
                                     endAdornment: (
                                         <InputAdornment position="end">
                                             <IconButton
                                                 onClick={() =>
-                                                    setShowPassword((previous) => !previous)
+                                                    setShowPassword(
+                                                        (previous) => !previous
+                                                    )
                                                 }
                                                 edge="end"
                                                 aria-label={
@@ -366,7 +416,10 @@ export default function Login() {
                                     ),
                                 },
                                 formHelperText: {
-                                    sx: { color: "#D32F2F", mx: 0 },
+                                    sx: {
+                                        color: "#D32F2F",
+                                        mx: 0,
+                                    },
                                 },
                             }}
                         />
