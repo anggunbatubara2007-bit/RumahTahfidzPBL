@@ -10,7 +10,7 @@ const PORT = 5000;
 app.use(cors());
 app.use(express.json());
 
-// Koneksi database MySQL
+// Koneksi database MySQL Laragon
 const db = mysql.createConnection({
     host: "localhost",
     user: "root",
@@ -19,17 +19,7 @@ const db = mysql.createConnection({
     port: 3306,
 });
 
-// Mengecek koneksi database
-db.connect((err) => {
-    if (err) {
-        console.error("Koneksi database gagal:", err.message);
-        return;
-    }
-
-    console.log("Database RSQ berhasil terhubung!");
-});
-
-// Menguji backend
+// Endpoint utama
 app.get("/", (req, res) => {
     res.json({
         message: "Backend Aplikasi Pondok Tahfidz RSQ Berhasil Berjalan",
@@ -53,7 +43,35 @@ app.get("/test-db", (req, res) => {
     });
 });
 
-// Menjalankan server
-app.listen(PORT, () => {
-    console.log(`Server RSQ berjalan di http://localhost:${PORT}`);
+// Mengecek daftar tabel database
+app.get("/api/tables", (req, res) => {
+    db.query("SHOW TABLES", (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                message: "Gagal mengambil daftar tabel",
+                error: err.message,
+            });
+        }
+
+        res.json({
+            message: "Daftar tabel database RSQ",
+            data: results,
+        });
+    });
+});
+
+// Menghubungkan database sebelum menjalankan server
+db.connect((err) => {
+    if (err) {
+        console.error("Koneksi database gagal!");
+        console.error("Kode error:", err.code);
+        console.error("Pesan error:", err.message);
+        return;
+    }
+
+    console.log("Database RSQ berhasil terhubung!");
+
+    app.listen(PORT, () => {
+        console.log(`Server RSQ berjalan di http://localhost:${PORT}`);
+    });
 });

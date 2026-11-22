@@ -1,3 +1,4 @@
+
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import SchoolIcon from '@mui/icons-material/School';
@@ -6,15 +7,10 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
-import TrackChangesIcon from '@mui/icons-material/TrackChanges';
-import PersonIcon from '@mui/icons-material/Person';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
 import PaymentsIcon from '@mui/icons-material/Payments';
-import HistoryIcon from '@mui/icons-material/History';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 
-// NAV[role] = daftar grup menu. `title` dipakai sebagai judul header halaman.
+// NAV[role] = daftar grup menu.
 export const NAV = {
     admin: [
         {
@@ -36,6 +32,7 @@ export const NAV = {
             ],
         },
     ],
+
     ustadz: [
         {
             items: [
@@ -44,14 +41,13 @@ export const NAV = {
             ],
         },
     ],
+
     santri: [
         {
             items: [
-                { label: 'Profil', title: 'Profil Saya', path: '/santri/profil', icon: PersonIcon },
-                { label: 'Hafalan Saya', title: 'Hafalan Saya', path: '/santri/hafalan', icon: MenuBookIcon },
-                { label: 'Target & Beasiswa', title: 'Target & Beasiswa', path: '/santri/target', icon: TrackChangesIcon },
-                { label: 'Tagihan SPP', title: 'Tagihan SPP', path: '/santri/spp', icon: PaymentsIcon },
-                { label: 'Riwayat Pembayaran', title: 'Riwayat Pembayaran', path: '/santri/riwayat', icon: HistoryIcon },
+                { label: 'Dashboard', title: 'Dashboard Santri', path: '/santri/profil', icon: DashboardIcon },
+                { label: 'Hafalan dan Target', title: 'Hafalan dan Target', path: '/santri/hafalan', icon: MenuBookIcon },
+                { label: 'SPP dan Pembayaran', title: 'SPP dan Pembayaran', path: '/santri/spp', icon: PaymentsIcon },
             ],
         },
     ],
