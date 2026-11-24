@@ -1,32 +1,88 @@
 
 const express = require("express");
 const cors = require("cors");
-const mysql = require("mysql2");
+require("dotenv").config();
+
+const db = require("./config/db");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Routes
+const authRoutes = require("./routes/authRoutes");
+const penggunaRoutes = require("./routes/penggunaRoutes");
+
+// Middleware autentikasi
+const {
+    verifyToken,
+    authorizeRoles,
+} = require("./middleware/authMiddleware");
+
+// Middleware utama
 app.use(cors());
 app.use(express.json());
 
-// Koneksi database MySQL Laragon
-const db = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "",
-    database: "db_rsq",
-    port: 3306,
-});
+// Menghubungkan routes
+app.use("/api/auth", authRoutes);
+app.use("/api/pengguna", penggunaRoutes);
 
-// Endpoint utama
+// =====================================
+// ENDPOINT PENGUJIAN ROLE
+// =====================================
+
+// Menguji akses khusus Admin
+app.get(
+    "/api/admin/test",
+    verifyToken,
+    authorizeRoles("Admin"),
+    (req, res) => {
+        res.json({
+            message: "Akses berhasil! Kamu login sebagai Admin.",
+            user: req.user,
+        });
+    }
+);
+
+// Menguji akses khusus Ustadz
+app.get(
+    "/api/ustadz/test",
+    verifyToken,
+    authorizeRoles("Ustadz"),
+    (req, res) => {
+        res.json({
+            message: "Akses berhasil! Kamu login sebagai Ustadz.",
+            user: req.user,
+        });
+    }
+);
+
+// Menguji akses khusus Santri
+app.get(
+    "/api/santri/test",
+    verifyToken,
+    authorizeRoles("Santri"),
+    (req, res) => {
+        res.json({
+            message: "Akses berhasil! Kamu login sebagai Santri.",
+            user: req.user,
+        });
+    }
+);
+
+// =====================================
+// ENDPOINT UTAMA
+// =====================================
+
 app.get("/", (req, res) => {
     res.json({
         message: "Backend Aplikasi Pondok Tahfidz RSQ Berhasil Berjalan",
     });
 });
 
-// Menguji koneksi database
+// =====================================
+// MENGUJI KONEKSI DATABASE
+// =====================================
+
 app.get("/test-db", (req, res) => {
     db.query("SELECT 1 AS hasil", (err, results) => {
         if (err) {
@@ -43,7 +99,10 @@ app.get("/test-db", (req, res) => {
     });
 });
 
-// Mengecek daftar tabel database
+// =====================================
+// MENGECEK DAFTAR TABEL DATABASE
+// =====================================
+
 app.get("/api/tables", (req, res) => {
     db.query("SHOW TABLES", (err, results) => {
         if (err) {
@@ -60,18 +119,10 @@ app.get("/api/tables", (req, res) => {
     });
 });
 
-// Menghubungkan database sebelum menjalankan server
-db.connect((err) => {
-    if (err) {
-        console.error("Koneksi database gagal!");
-        console.error("Kode error:", err.code);
-        console.error("Pesan error:", err.message);
-        return;
-    }
+// =====================================
+// MENJALANKAN SERVER
+// =====================================
 
-    console.log("Database RSQ berhasil terhubung!");
-
-    app.listen(PORT, () => {
-        console.log(`Server RSQ berjalan di http://localhost:${PORT}`);
-    });
+app.listen(PORT, () => {
+    console.log(`Server RSQ berjalan di http://localhost:${PORT}`);
 });

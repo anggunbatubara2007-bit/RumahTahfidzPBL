@@ -51,8 +51,6 @@ const dua = (n) => String(n).padStart(2, '0');
 const sekarang = new Date();
 const hariIni = `${sekarang.getFullYear()}-${dua(sekarang.getMonth() + 1)}-${dua(sekarang.getDate())}`;
 const bulanIni = hariIni.slice(0, 7);
-const hariBulan = new Date(sekarang.getFullYear(), sekarang.getMonth() + 1, 0).getDate();
-const targetSampaiHariIni = (TARGET * sekarang.getDate()) / hariBulan;
 
 const NAMA_BULAN = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -70,13 +68,17 @@ const formatBulanLabel = (ym) => {
     return `${NAMA_BULAN[bln - 1]} ${thn}`;
 };
 
-// Tercapai bila 20 halaman. Tertinggal bila di bawah laju yang dibutuhkan, selebihnya Proses.
+// Status capaian santri:
+// - Tercapai: sudah mencapai target (20 halaman ke atas)
+// - Proses: sudah mencapai 10 halaman ke atas (< 20 halaman)
+// - Tertinggal: di bawah 10 halaman
 const statusSantri = (progres) => {
     if (progres >= TARGET) return 'Tercapai';
-    return progres < targetSampaiHariIni ? 'Tertinggal' : 'Proses';
+    if (progres >= 10) return 'Proses';
+    return 'Tertinggal';
 };
 
-const WARNA_STATUS = { Tercapai: 'success', Proses: 'info', Tertinggal: 'error' };
+const WARNA_STATUS = { Tercapai: 'success', Proses: 'warning', Tertinggal: 'error' };
 
 const WARNA_JENIS = {
     Hafalan: { bg: palette.frostedMint, text: palette.pineTeal },
