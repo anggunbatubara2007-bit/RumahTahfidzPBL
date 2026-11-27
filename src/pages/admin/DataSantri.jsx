@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -16,117 +17,138 @@ import Autorenew from '@mui/icons-material/Autorenew';
 import ContentCopy from '@mui/icons-material/ContentCopy';
 import { palette } from '../../theme/theme';
 
-// TODO: ganti penyimpanan localStorage ini dengan API backend.
-// PENTING: password disimpan polos hanya untuk dummy frontend.
-// Di backend, password wajib di-hash dan tidak boleh dikirim kembali ke browser.
-const KUNCI = 'dataSantri';
-
-// Kelompok dan pembimbingnya diambil dari halaman Kelompok Tahfidz (FR-03),
-// jadi pembimbing tidak diisi manual di form santri.
-const KUNCI_KELOMPOK = 'dataKelompok';
-const KELOMPOK_DEFAULT = [
-    { nama: 'Al-Fatih', pembimbing: 'Ust. Hilman' },
-    { nama: 'Al-Nur', pembimbing: 'Ust. Nur' },
-    { nama: 'Ar-Rahman', pembimbing: 'Ust. Zainal' },
-    { nama: 'Al-Ikhlas', pembimbing: 'Ust. Muslih' },
-    { nama: 'Al-Falah', pembimbing: 'Ust. Rafi' },
-    { nama: 'An-Naba', pembimbing: 'Ust. Fatih' },
-];
-
-const muatKelompok = () => {
-    try {
-        const saved = JSON.parse(localStorage.getItem(KUNCI_KELOMPOK));
-        if (Array.isArray(saved)) {
-            return saved.map((k) => ({ nama: k.nama, pembimbing: k.pembina }));
-        }
-    } catch {
-        /* data rusak: pakai daftar bawaan */
-    }
-    return KELOMPOK_DEFAULT;
-};
-
-const STATUS = ['Aktif', 'Non-Aktif'];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const STATUS = ['Aktif', 'Tidak Aktif'];
 const PER_PAGE = 10;
 
-// beasiswa: true = penerima. Diisi otomatis oleh sistem dari capaian bulanan (FR-04),
-// jadi tidak bisa diubah dari form ini.
-// password: akun login santri (username-nya adalah NIS).
-// Santri berstatus Non-Aktif tidak bisa login.
-const DATA_AWAL = [
-    { id: 1, nama: 'Ahmad Iam', nis: '2024001', kelompok: 'Al-Fatih', beasiswa: true, status: 'Aktif', password: 'santri123' },
-    { id: 2, nama: 'Mhd. Iqbal', nis: '2024002', kelompok: 'Al-Nur', beasiswa: false, status: 'Non-Aktif', password: 'santri123' },
-    { id: 3, nama: 'Miftahul Jannah', nis: '2024003', kelompok: 'Al-Fatih', beasiswa: true, status: 'Aktif', password: 'santri123' },
-    { id: 4, nama: 'Rizki Hanafi', nis: '2024004', kelompok: 'Al-Nur', beasiswa: true, status: 'Non-Aktif', password: 'santri123' },
-    { id: 5, nama: 'Ahmad Rizki', nis: '2024005', kelompok: 'Al-Fatih', beasiswa: false, status: 'Aktif', password: 'santri123' },
-    { id: 6, nama: 'Citra Anggun', nis: '2024006', kelompok: 'Ar-Rahman', beasiswa: true, status: 'Aktif', password: 'santri123' },
-    { id: 7, nama: 'Tesa Damayanti', nis: '2024007', kelompok: 'An-Naba', beasiswa: false, status: 'Aktif', password: 'santri123' },
-    { id: 8, nama: 'Fauzan Ahmad', nis: '2024008', kelompok: 'Ar-Rahman', beasiswa: false, status: 'Aktif', password: 'santri123' },
-    { id: 9, nama: 'Nur Aisyah', nis: '2024009', kelompok: 'An-Naba', beasiswa: true, status: 'Aktif', password: 'santri123' },
-    { id: 10, nama: 'Dimas Pratama', nis: '2024010', kelompok: 'Al-Nur', beasiswa: false, status: 'Aktif', password: 'santri123' },
-    { id: 11, nama: 'Salsabila', nis: '2024011', kelompok: 'Al-Fatih', beasiswa: false, status: 'Non-Aktif', password: 'santri123' },
-    { id: 12, nama: 'Habib Ramadhan', nis: '2024012', kelompok: 'Al-Ikhlas', beasiswa: true, status: 'Aktif', password: 'santri123' },
-];
-
-const FORM_KOSONG = { nama: '', nis: '', kelompok: '', status: 'Aktif', password: '' };
-
-const muatData = () => {
-    try {
-        const saved = JSON.parse(localStorage.getItem(KUNCI));
-        if (Array.isArray(saved)) return saved;
-    } catch {
-        /* data rusak: pakai data awal */
-    }
-    return DATA_AWAL;
+const FORM_KOSONG = {
+    nama: '',
+    nis: '',
+    kelompok: '',
+    status: 'Aktif',
+    password: '',
 };
 
 const buatPassword = () => {
     const huruf = 'abcdefghjkmnpqrstuvwxyz23456789';
-    return Array.from({ length: 8 }, () => huruf[Math.floor(Math.random() * huruf.length)]).join('');
+    return Array.from(
+        { length: 8 },
+        () => huruf[Math.floor(Math.random() * huruf.length)]
+    ).join('');
 };
 
 export default function DataSantri() {
     const [searchParams] = useSearchParams();
 
-    const KELOMPOK = useMemo(muatKelompok, []);
-    const pembimbingDari = (nama) => KELOMPOK.find((k) => k.nama === nama)?.pembimbing ?? '-';
+    const [santri, setSantri] = useState([]);
+    const [kelompok, setKelompok] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const [santri, setSantri] = useState(muatData);
-    const [cari, setCari] = useState(searchParams.get('q') ?? ''); // dari kolom cari di dashboard
+    const [cari, setCari] = useState(searchParams.get('q') ?? '');
     const [filterKelompok, setFilterKelompok] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
     const [halaman, setHalaman] = useState(1);
 
-    const [dialog, setDialog] = useState(null); // { mode: 'tambah' | 'ubah', id? }
+    const [dialog, setDialog] = useState(null);
     const [form, setForm] = useState(FORM_KOSONG);
     const [errors, setErrors] = useState({});
     const [lihatPassword, setLihatPassword] = useState(false);
     const [hapus, setHapus] = useState(null);
-    const [akunBaru, setAkunBaru] = useState(null); // { nama, nis, password }
+    const [akunBaru, setAkunBaru] = useState(null);
     const [notif, setNotif] = useState('');
+    const [errorApi, setErrorApi] = useState('');
 
-    // Simpan setiap perubahan agar halaman Login bisa membaca akun santri terbaru
-    useEffect(() => {
+    const token = localStorage.getItem('token');
+
+    // =====================================
+    // HEADER AUTENTIKASI
+    // =====================================
+    const getHeaders = () => ({
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+    });
+
+    // =====================================
+    // MENGAMBIL DATA DARI BACKEND
+    // =====================================
+    const muatData = async () => {
         try {
-            localStorage.setItem(KUNCI, JSON.stringify(santri));
-        } catch {
-            /* penyimpanan penuh atau diblokir: abaikan */
+            setLoading(true);
+            setErrorApi('');
+
+            if (!token) {
+                throw new Error('Token login tidak ditemukan. Silakan login kembali.');
+            }
+
+            const [resPengguna, resKelompok] = await Promise.all([
+                fetch(`${API_URL}/api/pengguna`, {
+                    headers: getHeaders(),
+                }),
+                fetch(`${API_URL}/api/pengguna/kelompok`, {
+                    headers: getHeaders(),
+                }),
+            ]);
+
+            const hasilPengguna = await resPengguna.json();
+            const hasilKelompok = await resKelompok.json();
+
+            if (!resPengguna.ok) {
+                throw new Error(hasilPengguna.message || 'Gagal mengambil data Santri.');
+            }
+
+            if (!resKelompok.ok) {
+                throw new Error(hasilKelompok.message || 'Gagal mengambil kelompok.');
+            }
+
+            const daftarSantri = (hasilPengguna.data || [])
+                .filter((item) => item.role === 'Santri')
+                .map((item) => ({
+                    id: item.id_santri,
+                    nama: item.nama_santri,
+                    nis: item.nis_santri || item.nis_pengguna,
+                    id_kelompok: item.id_kelompok,
+                    kelompok: item.nama_kelompok || '-',
+                    pembimbing: item.nama_pembimbing || '-',
+                    beasiswa: item.status_beasiswa === 'Tercapai',
+                    status: item.status_santri,
+                }));
+
+            setSantri(daftarSantri);
+            setKelompok(hasilKelompok.data || []);
+        } catch (error) {
+            console.error('Gagal memuat data Santri:', error);
+            setErrorApi(error.message || 'Gagal menghubungkan ke server.');
+        } finally {
+            setLoading(false);
         }
-    }, [santri]);
+    };
 
-    // Pilihan kelompok di form: semua kelompok + kelompok santri yang sedang diubah
-    const pilihanKelompok = useMemo(() => {
-        const nama = KELOMPOK.map((k) => k.nama);
-        if (form.kelompok && !nama.includes(form.kelompok)) nama.push(form.kelompok);
-        return nama;
-    }, [KELOMPOK, form.kelompok]);
+    useEffect(() => {
+        muatData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    // ---------- Filter & halaman ----------
+    const pembimbingDari = (idKelompok) => {
+        const item = kelompok.find(
+            (k) => String(k.id_kelompok) === String(idKelompok)
+        );
+
+        return item?.nama_pembimbing || '-';
+    };
+
+    // =====================================
+    // FILTER DAN PAGINATION
+    // =====================================
     const terfilter = useMemo(() => {
         const q = cari.trim().toLowerCase();
+
         return santri.filter(
             (s) =>
-                (!q || s.nama.toLowerCase().includes(q) || s.nis.includes(q)) &&
-                (filterKelompok === 'all' || s.kelompok === filterKelompok) &&
+                (!q ||
+                    (s.nama || '').toLowerCase().includes(q) ||
+                    String(s.nis || '').includes(q)) &&
+                (filterKelompok === 'all' ||
+                    String(s.id_kelompok) === String(filterKelompok)) &&
                 (filterStatus === 'all' || s.status === filterStatus)
         );
     }, [santri, cari, filterKelompok, filterStatus]);
@@ -141,102 +163,190 @@ export default function DataSantri() {
         setHalaman(1);
     };
 
-    // ---------- Form tambah / ubah ----------
+    // =====================================
+    // DIALOG TAMBAH DAN EDIT
+    // =====================================
     const bukaTambah = () => {
-        setForm({ ...FORM_KOSONG, password: buatPassword() });
+        setForm({
+            ...FORM_KOSONG,
+            password: buatPassword(),
+        });
         setErrors({});
-        setLihatPassword(true); // password awal ditampilkan agar admin bisa mencatatnya
+        setLihatPassword(true);
         setDialog({ mode: 'tambah' });
     };
 
     const bukaUbah = (s) => {
         setForm({
-            nama: s.nama, nis: s.nis, kelompok: s.kelompok, status: s.status, password: '',
+            nama: s.nama,
+            nis: String(s.nis),
+            kelompok: s.id_kelompok ? String(s.id_kelompok) : '',
+            status: s.status,
+            password: '',
         });
+
         setErrors({});
         setLihatPassword(false);
         setDialog({ mode: 'ubah', id: s.id });
     };
 
-    const tutupDialog = () => setDialog(null);
+    const tutupDialog = () => {
+        setDialog(null);
+        setErrors({});
+    };
 
     const ubahForm = (e) => {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-        setErrors((prev) => ({ ...prev, [name]: '' }));
+
+        setForm((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+
+        setErrors((prev) => ({
+            ...prev,
+            [name]: '',
+        }));
     };
 
-    const simpan = (e) => {
+    // =====================================
+    // SIMPAN DATA SANTRI
+    // =====================================
+    const simpan = async (e) => {
         e.preventDefault();
 
         const nama = form.nama.trim();
         const nis = form.nis.trim();
         const password = form.password;
         const adaPassword = password.length > 0;
+
         const baru = {};
 
-        if (!nama) baru.nama = 'Nama santri wajib diisi.';
+        if (!nama) {
+            baru.nama = 'Nama santri wajib diisi.';
+        }
 
         if (!nis) {
             baru.nis = 'NIS wajib diisi.';
         } else if (!/^\d+$/.test(nis)) {
             baru.nis = 'NIS hanya boleh berisi angka.';
-        } else if (santri.some((s) => s.nis === nis && s.id !== dialog.id)) {
-            baru.nis = 'NIS sudah dipakai santri lain.'; // NIS harus unik (FR-02)
         }
 
-        if (!form.kelompok) baru.kelompok = 'Pilih kelompok tahfidz.';
+        if (!form.kelompok) {
+            baru.kelompok = 'Pilih kelompok tahfidz.';
+        }
 
-        if (dialog.mode === 'tambah' && !adaPassword) {
+        if (dialog?.mode === 'tambah' && !adaPassword) {
             baru.password = 'Password wajib diisi.';
         } else if (adaPassword && password.length < 6) {
             baru.password = 'Password minimal 6 karakter.';
         }
 
         setErrors(baru);
+
         if (Object.keys(baru).length > 0) return;
 
-        if (dialog.mode === 'tambah') {
-            setSantri((prev) => [
-                ...prev,
-                {
-                    id: Date.now(), nama, nis, kelompok: form.kelompok, status: form.status,
-                    beasiswa: false, password,
-                },
-            ]);
-            setAkunBaru({ nama, nis, password });
-        } else {
-            setSantri((prev) =>
-                prev.map((s) =>
-                    s.id === dialog.id
-                        ? {
-                            ...s, nama, nis, kelompok: form.kelompok, status: form.status,
-                            password: adaPassword ? password : s.password,
-                        }
-                        : s
-                )
-            );
-            setNotif(
-                adaPassword
-                    ? `Data dan password ${nama} berhasil diubah.`
-                    : `Data ${nama} berhasil diubah.`
-            );
+        const payload = {
+            nama,
+            nis,
+            id_kelompok: Number(form.kelompok),
+            status: form.status,
+        };
+
+        if (adaPassword) {
+            payload.password = password;
         }
-        tutupDialog();
+
+        try {
+            const url =
+                dialog.mode === 'tambah'
+                    ? `${API_URL}/api/pengguna/santri`
+                    : `${API_URL}/api/pengguna/santri/${dialog.id}`;
+
+            const response = await fetch(url, {
+                method: dialog.mode === 'tambah' ? 'POST' : 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify(payload),
+            });
+
+            const hasil = await response.json();
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    setErrors((prev) => ({
+                        ...prev,
+                        nis: hasil.message || 'NIS sudah digunakan.',
+                    }));
+                    return;
+                }
+
+                throw new Error(hasil.message || 'Gagal menyimpan data Santri.');
+            }
+
+            if (dialog.mode === 'tambah') {
+                setAkunBaru({
+                    nama,
+                    nis,
+                    password,
+                });
+            } else {
+                setNotif(
+                    adaPassword
+                        ? `Data dan password ${nama} berhasil diubah.`
+                        : `Data ${nama} berhasil diubah.`
+                );
+            }
+
+            tutupDialog();
+            await muatData();
+        } catch (error) {
+            console.error(error);
+            setNotif(error.message || 'Gagal menyimpan data.');
+        }
     };
 
-    // ---------- Hapus ----------
-    const konfirmasiHapus = () => {
-        setSantri((prev) => prev.filter((s) => s.id !== hapus.id));
-        setNotif(`${hapus.nama} dan akun loginnya berhasil dihapus.`);
-        setHapus(null);
+    // =====================================
+    // MENONAKTIFKAN AKUN SANTRI
+    // =====================================
+    const konfirmasiHapus = async () => {
+        if (!hapus) return;
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/pengguna/santri/${hapus.id}`,
+                {
+                    method: 'DELETE',
+                    headers: getHeaders(),
+                }
+            );
+
+            const hasil = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    hasil.message || 'Gagal menonaktifkan akun Santri.'
+                );
+            }
+
+            setNotif(`Akun ${hapus.nama} berhasil dinonaktifkan.`);
+            setHapus(null);
+
+            await muatData();
+        } catch (error) {
+            console.error(error);
+            setNotif(error.message || 'Gagal menonaktifkan akun.');
+        }
     };
 
+    // =====================================
+    // SALIN AKUN BARU
+    // =====================================
     const salinAkun = async () => {
         try {
             await navigator.clipboard.writeText(
                 `NIS: ${akunBaru.nis}\nPassword: ${akunBaru.password}`
             );
+
             setNotif('NIS dan password disalin.');
         } catch {
             setNotif('Tidak bisa menyalin otomatis. Catat secara manual.');
@@ -248,6 +358,19 @@ export default function DataSantri() {
             <Typography color="text.secondary" sx={{ mt: -1 }}>
                 Kelola data dan akun login santri Pondok Tahfidz RSQ
             </Typography>
+
+            {errorApi && (
+                <Alert
+                    severity="error"
+                    action={
+                        <Button color="inherit" size="small" onClick={muatData}>
+                            Coba Lagi
+                        </Button>
+                    }
+                >
+                    {errorApi}
+                </Alert>
+            )}
 
             {/* Pencarian, filter, tombol tambah */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
@@ -278,8 +401,13 @@ export default function DataSantri() {
                     slotProps={{ htmlInput: { 'aria-label': 'Filter kelompok' } }}
                 >
                     <MenuItem value="all">Semua Kelompok</MenuItem>
-                    {KELOMPOK.map((k) => (
-                        <MenuItem key={k.nama} value={k.nama}>{k.nama}</MenuItem>
+                    {kelompok.map((k) => (
+                        <MenuItem
+                            key={k.id_kelompok}
+                            value={String(k.id_kelompok)}
+                        >
+                            {k.nama_kelompok}
+                        </MenuItem>
                     ))}
                 </TextField>
 
@@ -299,12 +427,23 @@ export default function DataSantri() {
 
                 <Box sx={{ flex: 1 }} />
 
-                <Button variant="contained" startIcon={<AddIcon />} onClick={bukaTambah}>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={bukaTambah}
+                    disabled={loading || kelompok.length === 0}
+                >
                     Tambah Santri
                 </Button>
             </Box>
 
-            {/* Tabel (header mengikuti tema) */}
+            {kelompok.length === 0 && !loading && (
+                <Alert severity="warning">
+                    Belum ada kelompok tahfidz. Tambahkan kelompok terlebih dahulu sebelum membuat akun Santri.
+                </Alert>
+            )}
+
+            {/* Tabel */}
             <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
                 <TableContainer>
                     <Table size="small">
@@ -320,17 +459,31 @@ export default function DataSantri() {
                                 <TableCell align="center">Aksi</TableCell>
                             </TableRow>
                         </TableHead>
+
                         <TableBody>
-                            {tampil.map((s, i) => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                        Memuat data Santri...
+                                    </TableCell>
+                                </TableRow>
+                            ) : tampil.map((s, i) => (
                                 <TableRow key={s.id} hover>
                                     <TableCell>{mulai + i + 1}</TableCell>
-                                    <TableCell sx={{ fontWeight: 600 }}>{s.nama}</TableCell>
+                                    <TableCell sx={{ fontWeight: 600 }}>
+                                        {s.nama}
+                                    </TableCell>
                                     <TableCell>{s.nis}</TableCell>
                                     <TableCell>{s.kelompok}</TableCell>
-                                    <TableCell>{pembimbingDari(s.kelompok)}</TableCell>
+                                    <TableCell>{s.pembimbing}</TableCell>
                                     <TableCell align="center">
                                         {s.beasiswa ? (
-                                            <Chip label="Penerima" size="small" color="success" variant="outlined" />
+                                            <Chip
+                                                label="Penerima"
+                                                size="small"
+                                                color="success"
+                                                variant="outlined"
+                                            />
                                         ) : (
                                             <Typography color="text.secondary">–</Typography>
                                         )}
@@ -345,20 +498,31 @@ export default function DataSantri() {
                                     </TableCell>
                                     <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
                                         <Tooltip title="Ubah / reset password">
-                                            <IconButton size="small" onClick={() => bukaUbah(s)} aria-label={`Ubah ${s.nama}`}>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => bukaUbah(s)}
+                                                aria-label={`Ubah ${s.nama}`}
+                                            >
                                                 <EditIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
 
-                                        <Tooltip title="Hapus">
-                                            <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={() => setHapus(s)}
-                                                aria-label={`Hapus ${s.nama}`}
-                                            >
-                                                <DeleteIcon fontSize="small" />
-                                            </IconButton>
+                                        <Tooltip title={
+                                            s.status === 'Tidak Aktif'
+                                                ? 'Akun sudah tidak aktif'
+                                                : 'Nonaktifkan akun'
+                                        }>
+                                            <span>
+                                                <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    disabled={s.status === 'Tidak Aktif'}
+                                                    onClick={() => setHapus(s)}
+                                                    aria-label={`Nonaktifkan ${s.nama}`}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </span>
                                         </Tooltip>
                                     </TableCell>
                                 </TableRow>
@@ -367,7 +531,7 @@ export default function DataSantri() {
                     </Table>
                 </TableContainer>
 
-                {terfilter.length === 0 && (
+                {!loading && terfilter.length === 0 && (
                     <Typography color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
                         Tidak ada santri yang cocok. Ubah kata kunci atau filter, atau tambahkan santri baru.
                     </Typography>
@@ -409,7 +573,13 @@ export default function DataSantri() {
                 onClose={tutupDialog}
                 fullWidth
                 maxWidth="xs"
-                slotProps={{ paper: { component: 'form', onSubmit: simpan, noValidate: true } }}
+                slotProps={{
+                    paper: {
+                        component: 'form',
+                        onSubmit: simpan,
+                        noValidate: true,
+                    },
+                }}
             >
                 <DialogTitle sx={{ fontWeight: 700 }}>
                     {dialog?.mode === 'ubah' ? 'Ubah Data Santri' : 'Tambah Santri'}
@@ -426,16 +596,21 @@ export default function DataSantri() {
                         autoFocus
                         fullWidth
                     />
+
                     <TextField
                         label="NIS"
                         name="nis"
                         value={form.nis}
                         onChange={ubahForm}
                         error={Boolean(errors.nis)}
-                        helperText={errors.nis || 'Nomor induk santri, harus unik. Dipakai santri untuk masuk.'}
+                        helperText={
+                            errors.nis ||
+                            'Nomor induk santri, harus unik. Dipakai santri untuk masuk.'
+                        }
                         slotProps={{ htmlInput: { inputMode: 'numeric' } }}
                         fullWidth
                     />
+
                     <TextField
                         label={dialog?.mode === 'ubah' ? 'Password baru' : 'Password'}
                         name="password"
@@ -459,19 +634,30 @@ export default function DataSantri() {
                                                 size="small"
                                                 aria-label="Buat password acak"
                                                 onClick={() => {
-                                                    setForm((prev) => ({ ...prev, password: buatPassword() }));
-                                                    setErrors((prev) => ({ ...prev, password: '' }));
+                                                    setForm((prev) => ({
+                                                        ...prev,
+                                                        password: buatPassword(),
+                                                    }));
+                                                    setErrors((prev) => ({
+                                                        ...prev,
+                                                        password: '',
+                                                    }));
                                                     setLihatPassword(true);
                                                 }}
                                             >
                                                 <Autorenew fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
+
                                         <IconButton
                                             size="small"
                                             edge="end"
                                             onClick={() => setLihatPassword((v) => !v)}
-                                            aria-label={lihatPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                                            aria-label={
+                                                lihatPassword
+                                                    ? 'Sembunyikan password'
+                                                    : 'Tampilkan password'
+                                            }
                                         >
                                             {lihatPassword ? (
                                                 <VisibilityOff fontSize="small" />
@@ -485,6 +671,7 @@ export default function DataSantri() {
                         }}
                         fullWidth
                     />
+
                     <TextField
                         select
                         label="Kelompok tahfidz"
@@ -494,21 +681,29 @@ export default function DataSantri() {
                         error={Boolean(errors.kelompok)}
                         helperText={
                             errors.kelompok ||
-                            (form.kelompok ? `Pembimbing: ${pembimbingDari(form.kelompok)}` : ' ')
+                            (form.kelompok
+                                ? `Pembimbing: ${pembimbingDari(form.kelompok)}`
+                                : ' ')
                         }
                         fullWidth
                     >
-                        {pilihanKelompok.map((nama) => (
-                            <MenuItem key={nama} value={nama}>{nama}</MenuItem>
+                        {kelompok.map((k) => (
+                            <MenuItem
+                                key={k.id_kelompok}
+                                value={String(k.id_kelompok)}
+                            >
+                                {k.nama_kelompok}
+                            </MenuItem>
                         ))}
                     </TextField>
+
                     <TextField
                         select
                         label="Status"
                         name="status"
                         value={form.status}
                         onChange={ubahForm}
-                        helperText="Santri Non-Aktif tidak bisa masuk ke aplikasi."
+                        helperText="Santri Tidak Aktif tetap dapat login untuk melihat data dan riwayat."
                         fullWidth
                     >
                         {STATUS.map((s) => (
@@ -525,57 +720,92 @@ export default function DataSantri() {
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog: akun berhasil dibuat (password hanya tampil sekali) */}
-            <Dialog open={Boolean(akunBaru)} onClose={() => setAkunBaru(null)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700 }}>Akun santri berhasil dibuat</DialogTitle>
+            {/* Dialog akun berhasil dibuat */}
+            <Dialog
+                open={Boolean(akunBaru)}
+                onClose={() => setAkunBaru(null)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle sx={{ fontWeight: 700 }}>
+                    Akun santri berhasil dibuat
+                </DialogTitle>
+
                 <DialogContent>
                     <DialogContentText sx={{ mb: 2 }}>
-                        Berikan data ini kepada <strong>{akunBaru?.nama}</strong>. Password tidak akan
-                        ditampilkan lagi setelah jendela ini ditutup.
+                        Berikan data ini kepada <strong>{akunBaru?.nama}</strong>.
+                        Password tidak akan ditampilkan lagi setelah jendela ini ditutup.
                     </DialogContentText>
+
                     <Box
                         sx={{
-                            p: 2, borderRadius: 2, bgcolor: palette.honeydew,
-                            border: `1px solid ${palette.aquamarine}`, fontFamily: 'monospace',
-                            display: 'grid', gap: 0.5,
+                            p: 2,
+                            borderRadius: 2,
+                            bgcolor: palette.honeydew,
+                            border: `1px solid ${palette.aquamarine}`,
+                            fontFamily: 'monospace',
+                            display: 'grid',
+                            gap: 0.5,
                         }}
                     >
                         <Box>NIS: <strong>{akunBaru?.nis}</strong></Box>
                         <Box>Password: <strong>{akunBaru?.password}</strong></Box>
                     </Box>
                 </DialogContent>
-                <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button startIcon={<ContentCopy />} onClick={salinAkun}>Salin</Button>
-                    <Button variant="contained" onClick={() => setAkunBaru(null)}>Selesai</Button>
-                </DialogActions>
-            </Dialog>
 
-            {/* Dialog konfirmasi hapus */}
-            <Dialog open={Boolean(hapus)} onClose={() => setHapus(null)} maxWidth="xs" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700 }}>Hapus santri?</DialogTitle>
-                <DialogContent>
-                    <DialogContentText>
-                        Data dan akun login <strong>{hapus?.nama}</strong> (NIS {hapus?.nis}) akan dihapus
-                        dan tidak bisa dikembalikan. Kalau santri hanya berhenti sementara, ubah statusnya
-                        menjadi Non-Aktif.
-                    </DialogContentText>
-                </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => setHapus(null)}>Batal</Button>
-                    <Button color="error" variant="contained" onClick={konfirmasiHapus}>
-                        Hapus
+                    <Button startIcon={<ContentCopy />} onClick={salinAkun}>
+                        Salin
+                    </Button>
+                    <Button variant="contained" onClick={() => setAkunBaru(null)}>
+                        Selesai
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Pemberitahuan */}
+            {/* Dialog konfirmasi menonaktifkan akun */}
+            <Dialog
+                open={Boolean(hapus)}
+                onClose={() => setHapus(null)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle sx={{ fontWeight: 700 }}>
+                    Nonaktifkan akun Santri?
+                </DialogTitle>
+
+                <DialogContent>
+                    <DialogContentText>
+                        Akun <strong>{hapus?.nama}</strong> (NIS {hapus?.nis})
+                        akan diubah menjadi Tidak Aktif. Data, riwayat hafalan,
+                        dan riwayat pembayaran tetap tersimpan.
+                    </DialogContentText>
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setHapus(null)}>Batal</Button>
+                    <Button
+                        color="error"
+                        variant="contained"
+                        onClick={konfirmasiHapus}
+                    >
+                        Nonaktifkan
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Notifikasi */}
             <Snackbar
                 open={Boolean(notif)}
                 autoHideDuration={3000}
                 onClose={() => setNotif('')}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-                <Alert severity="success" onClose={() => setNotif('')} variant="filled">
+                <Alert
+                    severity="success"
+                    onClose={() => setNotif('')}
+                    variant="filled"
+                >
                     {notif}
                 </Alert>
             </Snackbar>

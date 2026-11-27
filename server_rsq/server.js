@@ -11,6 +11,8 @@ const PORT = process.env.PORT || 5000;
 // Routes
 const authRoutes = require("./routes/authRoutes");
 const penggunaRoutes = require("./routes/penggunaRoutes");
+const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
+const kelompokRoutes = require("./routes/kelompokRoutes");
 
 // Middleware autentikasi
 const {
@@ -25,12 +27,13 @@ app.use(express.json());
 // Menghubungkan routes
 app.use("/api/auth", authRoutes);
 app.use("/api/pengguna", penggunaRoutes);
+app.use("/api/admin", adminDashboardRoutes);
+app.use("/api/kelompok", kelompokRoutes);
 
 // =====================================
 // ENDPOINT PENGUJIAN ROLE
 // =====================================
 
-// Menguji akses khusus Admin
 app.get(
     "/api/admin/test",
     verifyToken,
@@ -43,7 +46,6 @@ app.get(
     }
 );
 
-// Menguji akses khusus Ustadz
 app.get(
     "/api/ustadz/test",
     verifyToken,
@@ -56,7 +58,6 @@ app.get(
     }
 );
 
-// Menguji akses khusus Santri
 app.get(
     "/api/santri/test",
     verifyToken,

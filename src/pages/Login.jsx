@@ -24,60 +24,8 @@ import {
 
 import { useAuth, HOME_BY_ROLE } from "./auth";
 
-// Akun dummy sementara.
-// Nanti akan diganti dengan API dari backend MySQL.
-const USERS = [
-    {
-        id: 1,
-        username: "admin",
-        password: "admin123",
-        nama: "Admin RSQ",
-        role: "admin",
-    },
-    {
-        id: 2,
-        username: "Hilman",
-        password: "Hilman123",
-        nama: "Ust. Hilman",
-        kelompok: "Al-Fatih",
-        jumlahSantri: 18,
-        role: "ustadz",
-    },
-    {
-        id: 3,
-        nis: "2024001",
-        password: "santri123",
-        nama: "Ahmad Fauzan",
-        role: "santri",
-    },
-];
-
-// Mengambil akun Ustadz dari data yang dikelola Admin.
-const semuaAkun = () => {
-    try {
-        const saved = JSON.parse(localStorage.getItem("dataUstadz"));
-
-        if (Array.isArray(saved)) {
-            const ustadz = saved.map((u) => ({
-                id: `ustadz-${u.id}`,
-                username: u.username,
-                password: u.password,
-                nama: u.nama,
-                kelompok: u.kelompok,
-                role: "ustadz",
-            }));
-
-            return [
-                ...USERS.filter((u) => u.role !== "ustadz"),
-                ...ustadz,
-            ];
-        }
-    } catch {
-        // Jika data rusak, gunakan akun dummy.
-    }
-
-    return USERS;
-};
+// Alamat backend
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function Login() {
     const { user, login } = useAuth();
@@ -91,12 +39,13 @@ export default function Login() {
     const [errors, setErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
     const [loginError, setLoginError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    // Jika sudah login, langsung arahkan sesuai role.
+    // Jika sudah login, arahkan sesuai role
     if (user) {
         return (
             <Navigate
-                to={HOME_BY_ROLE[user.role]}
+                to={HOME_BY_ROLE[user.role] || "/login"}
                 replace
             />
         );
@@ -118,7 +67,7 @@ export default function Login() {
         setLoginError("");
     };
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault();
 
         const newErrors = {};
@@ -138,41 +87,65 @@ export default function Login() {
             return;
         }
 
-        // Mencari akun berdasarkan username atau NIS.
-        // Role akan dikenali otomatis dari data akun.
-        const found = semuaAkun().find((u) => {
-            const cocokUsername =
-                u.username &&
-                u.username.toLowerCase() === identifier.toLowerCase();
+        try {
+            setLoading(true);
+            setLoginError("");
 
-            const cocokNIS =
-                u.nis &&
-                u.nis === identifier;
-
-            return (
-                (cocokUsername || cocokNIS) &&
-                u.password === form.password
+            // Mengirim data login ke backend
+            const response = await fetch(
+                `${API_URL}/api/auth/login`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        identifier,
+                        password: form.password,
+                    }),
+                }
             );
-        });
 
-        if (!found) {
-            setLoginError(
-                "Username/NIS atau password tidak sesuai. Periksa kembali akun kamu."
-            );
-            return;
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || "Login gagal. Periksa akun kamu."
+                );
+            }
+
+            if (!data.token || !data.user) {
+                throw new Error("Respons login dari server tidak lengkap.");
+            }
+
+            // Menyimpan token dan informasi pengguna
+            login(data);
+
+            // Menentukan halaman berdasarkan role
+            const role = String(data.user.role).toLowerCase();
+            const tujuan = HOME_BY_ROLE[role];
+
+            if (!tujuan) {
+                throw new Error("Role pengguna tidak dikenali.");
+            }
+
+            navigate(tujuan, { replace: true });
+        } catch (error) {
+            console.error("Login error:", error);
+
+            if (
+                error instanceof TypeError &&
+                error.message.toLowerCase().includes("fetch")
+            ) {
+                setLoginError(
+                    "Tidak dapat terhubung ke server. Pastikan backend berjalan."
+                );
+            } else {
+                setLoginError(error.message);
+            }
+        } finally {
+            setLoading(false);
         }
-
-        // Jangan menyimpan password ke localStorage.
-        const safeUser = { ...found };
-        delete safeUser.password;
-
-        // Simpan informasi pengguna.
-        login(safeUser);
-
-        // Arahkan berdasarkan role akun.
-        navigate(HOME_BY_ROLE[safeUser.role], {
-            replace: true,
-        });
     };
 
     return (
@@ -296,7 +269,7 @@ export default function Login() {
                         diberikan oleh administrator.
                     </Typography>
 
-                    {/* Pesan kesalahan login */}
+                    {/* Pesan kesalahan */}
                     {loginError && (
                         <Alert
                             severity="error"
@@ -336,6 +309,7 @@ export default function Login() {
                             error={Boolean(errors.identifier)}
                             helperText={errors.identifier}
                             autoComplete="username"
+                            disabled={loading}
                             sx={{ mb: 2.5 }}
                             slotProps={{
                                 htmlInput: {
@@ -381,6 +355,7 @@ export default function Login() {
                             error={Boolean(errors.password)}
                             helperText={errors.password}
                             autoComplete="current-password"
+                            disabled={loading}
                             sx={{ mb: 3 }}
                             slotProps={{
                                 input: {
@@ -424,13 +399,14 @@ export default function Login() {
                             }}
                         />
 
-                        {/* Tombol Login */}
+                        {/* Tombol login */}
                         <Button
                             fullWidth
                             type="submit"
                             variant="contained"
                             size="large"
                             startIcon={<LockOutlined />}
+                            disabled={loading}
                             sx={{
                                 py: 1.4,
                                 bgcolor: "#047857",
@@ -443,7 +419,7 @@ export default function Login() {
                                 },
                             }}
                         >
-                            Login
+                            {loading ? "Memproses..." : "Login"}
                         </Button>
                     </Box>
 

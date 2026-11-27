@@ -7,14 +7,12 @@ const login = async (req, res) => {
     try {
         const { identifier, password } = req.body;
 
-        // Validasi input
         if (!identifier || !password) {
             return res.status(400).json({
                 message: "Username/NIS dan password wajib diisi.",
             });
         }
 
-        // Mencari akun berdasarkan username atau NIS
         const sql = `
             SELECT
                 p.id_pengguna,
@@ -32,19 +30,29 @@ const login = async (req, res) => {
                 s.nama AS nama_santri,
                 s.status AS status_santri
             FROM pengguna p
-            LEFT JOIN admin a ON p.id_pengguna = a.id_pengguna
-            LEFT JOIN ustadz u ON p.id_pengguna = u.id_pengguna
-            LEFT JOIN santri s ON p.id_pengguna = s.id_pengguna
+            LEFT JOIN admin a
+                ON p.id_pengguna = a.id_pengguna
+            LEFT JOIN ustadz u
+                ON p.id_pengguna = u.id_pengguna
+            LEFT JOIN santri s
+                ON p.id_pengguna = s.id_pengguna
             WHERE
-                (p.username = ? AND p.role IN ('Admin', 'Ustadz'))
+                (
+                    p.username = ?
+                    AND p.role IN ('Admin', 'Ustadz')
+                )
                 OR
-                (p.nis = ? AND p.role = 'Santri')
+                (
+                    p.nis = ?
+                    AND p.role = 'Santri'
+                )
             LIMIT 1
         `;
 
         db.query(sql, [identifier, identifier], async (err, results) => {
             if (err) {
                 console.error("Login error:", err.message);
+
                 return res.status(500).json({
                     message: "Terjadi kesalahan pada server.",
                 });
@@ -58,7 +66,6 @@ const login = async (req, res) => {
 
             const user = results[0];
 
-            // Memeriksa password menggunakan bcrypt
             const passwordValid = await bcrypt.compare(
                 password,
                 user.password
@@ -70,16 +77,17 @@ const login = async (req, res) => {
                 });
             }
 
-            // Memastikan kunci JWT tersedia
             if (!process.env.JWT_SECRET) {
                 console.error("JWT_SECRET belum dikonfigurasi.");
+
                 return res.status(500).json({
                     message: "Konfigurasi autentikasi belum tersedia.",
                 });
             }
 
-            // Menentukan profil berdasarkan role
+            // Menentukan data profil dan status akun
             let profile = {};
+            let statusAkun = "Aktif";
 
             if (user.role === "Admin") {
                 profile = {
@@ -87,12 +95,28 @@ const login = async (req, res) => {
                     nama: user.nama_admin,
                 };
             } else if (user.role === "Ustadz") {
+                if (!user.id_ustadz) {
+                    return res.status(403).json({
+                        message: "Data profil Ustadz tidak ditemukan.",
+                    });
+                }
+
+                statusAkun = user.status_ustadz;
+
                 profile = {
                     id_ustadz: user.id_ustadz,
                     nama: user.nama_ustadz,
                     status: user.status_ustadz,
                 };
             } else if (user.role === "Santri") {
+                if (!user.id_santri) {
+                    return res.status(403).json({
+                        message: "Data profil Santri tidak ditemukan.",
+                    });
+                }
+
+                statusAkun = user.status_santri;
+
                 profile = {
                     id_santri: user.id_santri,
                     id_kelompok: user.id_kelompok,
@@ -102,7 +126,9 @@ const login = async (req, res) => {
                 };
             }
 
-            // Membuat token JWT
+            // Akun Cuti/Tidak Aktif tetap boleh login.
+            // Pembatasan aktivitas dilakukan oleh middleware.
+
             const token = jwt.sign(
                 {
                     id_pengguna: user.id_pengguna,
@@ -122,12 +148,14 @@ const login = async (req, res) => {
                     username: user.username,
                     nis: user.nis,
                     role: user.role,
+                    status: statusAkun,
                     ...profile,
                 },
             });
         });
     } catch (error) {
         console.error("Login error:", error.message);
+
         return res.status(500).json({
             message: "Terjadi kesalahan pada server.",
         });

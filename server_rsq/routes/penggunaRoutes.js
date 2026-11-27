@@ -4,8 +4,13 @@ const router = express.Router();
 
 const {
     getAllPengguna,
+    getAllKelompok,
     createUstadz,
     createSantri,
+    updateUstadz,
+    updateSantri,
+    deleteUstadz,
+    deleteSantri,
 } = require("../controllers/penggunaController");
 
 const {
@@ -16,13 +21,32 @@ const {
 // Semua endpoint hanya bisa diakses Admin
 router.use(verifyToken, authorizeRoles("Admin"));
 
-// Menampilkan semua pengguna
+// =====================================
+// MENAMPILKAN KELOMPOK TAHFIDZ
+// =====================================
+router.get("/kelompok", getAllKelompok);
+
+// =====================================
+// MENAMPILKAN SEMUA DATA PENGGUNA
+// =====================================
 router.get("/", getAllPengguna);
 
-// Membuat akun Ustadz
+// =====================================
+// MEMBUAT AKUN
+// =====================================
 router.post("/ustadz", createUstadz);
-
-// Membuat akun Santri
 router.post("/santri", createSantri);
+
+// =====================================
+// MENGEDIT AKUN
+// =====================================
+router.put("/ustadz/:id", updateUstadz);
+router.put("/santri/:id", updateSantri);
+
+// =====================================
+// MENONAKTIFKAN AKUN
+// =====================================
+router.delete("/ustadz/:id", deleteUstadz);
+router.delete("/santri/:id", deleteSantri);
 
 module.exports = router;
